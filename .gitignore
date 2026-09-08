@@ -1,0 +1,14 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Build outputs
+*.apk
+*.aab
+*.idsig
+*.ipa
+export/
+
+# OS junk
+.DS_Store
+Thumbs.db
