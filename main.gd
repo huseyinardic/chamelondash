@@ -21,6 +21,8 @@ extends Node2D
 @onready var streak_label: Label = $UI/GameOverPanel/StreakLabel
 @onready var unlock_notice_label: Label = $UI/GameOverPanel/UnlockNoticeLabel
 @onready var theme_button: Button = $UI/GameOverPanel/ThemeButton
+@onready var revive_button: Button = $UI/GameOverPanel/ReviveButton
+@onready var unlock_neon_button: Button = $UI/StartPanel/ContentBox/UnlockNeonButton
 @onready var start_panel: Control = $UI/StartPanel
 @onready var best_score_label: Label = $UI/StartPanel/ContentBox/BestScoreLabel
 @onready var streak_display_label: Label = $UI/StartPanel/ContentBox/StreakDisplayLabel
@@ -62,6 +64,9 @@ var game_over = false
 const INTERSTITIAL_ID_ANDROID := "ca-app-pub-4752797500144210/7742107229"      # gerçek (production)
 const INTERSTITIAL_ID_ANDROID_TEST := "ca-app-pub-3940256099942544/1033173712"  # Google resmi test
 const INTERSTITIAL_ID_IOS_TEST := "ca-app-pub-3940256099942544/4411468910"
+const REWARDED_ID_ANDROID := "ca-app-pub-4752797500144210/9834321044"          # gerçek (production)
+const REWARDED_ID_ANDROID_TEST := "ca-app-pub-3940256099942544/5224354917"      # Google resmi test
+const REWARDED_ID_IOS_TEST := "ca-app-pub-3940256099942544/1712485313"
 
 # --- geçiş reklamı sıklık kuralları ---
 const AD_FREE_GAMES := 3          # ilk 3 oyun reklamsız
@@ -71,12 +76,22 @@ const AD_MIN_MSEC_GAP := 60000    # ve son reklamdan en az 60 sn sonra
 var interstitial_ad: InterstitialAd
 var interstitial_ad_load_callback := InterstitialAdLoadCallback.new()
 var full_screen_callback := FullScreenContentCallback.new()
+var rewarded_ad: RewardedAd
+var rewarded_ad_load_callback := RewardedAdLoadCallback.new()
+var _rewarded_purpose := ""          # "revive" | "unlock_neon"
+var _rewarded_reward_earned := false
+var _used_revive_this_run := false
 var waiting_for_ad = false
 var _ads_initialized := false
 var _pending_restart := false
 var _ad_showing := false
 var last_spawned_gate: ColorRect = null
 var can_restart = false
+
+# yanlış renkli bariyer için senkron "coyote" bekleme penceresi (await yok)
+var _pending_gate: ColorRect = null
+var _pending_deadline := 0
+const COYOTE_MS := 90
 
 var _swatches_connected := false
 
@@ -95,8 +110,12 @@ func _ready():
 	full_screen_callback.on_ad_dismissed_full_screen_content = _on_ad_dismissed
 	full_screen_callback.on_ad_showed_full_screen_content = _on_ad_shown
 	full_screen_callback.on_ad_failed_to_show_full_screen_content = _on_ad_failed_to_show
+	rewarded_ad_load_callback.on_ad_loaded = _on_rewarded_loaded
+	rewarded_ad_load_callback.on_ad_failed_to_load = _on_rewarded_failed
+	revive_button.pressed.connect(_on_revive_pressed)
+	unlock_neon_button.pressed.connect(_on_unlock_neon_pressed)
 	_setup_ads()
-	
+
 	theme_button.pressed.connect(_on_theme_button_pressed)
 	theme_button.text = "Theme: " + theme_names[GameState.active_theme]
 	
@@ -162,6 +181,9 @@ func _process(delta):
 	_update_juice(delta)
 	if not game_started or game_over:
 		return
+
+	_resolve_pending_gate()
+
 	next_gate_y += scroll_speed * delta
 	for gate in gates_container.get_children():
 		gate.position.y += scroll_speed * delta
@@ -230,14 +252,24 @@ func check_gate_collision(gate: ColorRect):
 	if gate.get_meta("color_index") == current_color_index:
 		_award_pass(gate)
 	else:
-		# geç dokunuşa küçük tolerans (coyote time) - hızlı seviyelerde haksız ölümü azaltır
-		await get_tree().create_timer(0.09).timeout
-		if game_over or not is_instance_valid(gate):
-			return
-		if gate.get_meta("color_index") == current_color_index:
-			_award_pass(gate)
-		else:
-			end_game()
+		# yanlış renk: geç dokunuşa küçük tolerans tanı (senkron, _process'te çözülür)
+		_pending_gate = gate
+		_pending_deadline = Time.get_ticks_msec() + COYOTE_MS
+
+func _resolve_pending_gate() -> void:
+	if _pending_gate == null:
+		return
+	if not is_instance_valid(_pending_gate):
+		_pending_gate = null
+		return
+	if _pending_gate.get_meta("color_index") == current_color_index:
+		# oyuncu zamanında rengi düzeltti
+		var g := _pending_gate
+		_pending_gate = null
+		_award_pass(g)
+	elif Time.get_ticks_msec() >= _pending_deadline:
+		_pending_gate = null
+		end_game()
 
 func _award_pass(gate: ColorRect):
 	score += 1
@@ -320,6 +352,9 @@ func end_game():
 
 	streak_label.text = "🔥 " + str(GameState.daily_streak) + " day streak"
 
+	# "reklam izle, devam et" — koşu başına bir kez, reklam hazırsa
+	revive_button.visible = rewarded_ready() and not _used_revive_this_run
+
 	if score > GameState.high_score:
 		GameState.high_score = score
 		GameState.save_data()
@@ -401,6 +436,7 @@ func _initialize_ads() -> void:
 	MobileAds.set_request_configuration(conf)
 	await get_tree().create_timer(1.5).timeout
 	load_interstitial_ad()
+	load_rewarded_ad()
 
 func _get_interstitial_unit_id() -> String:
 	if OS.get_name() == "Android":
@@ -466,6 +502,85 @@ func _start_ad_safety_timeout() -> void:
 	if waiting_for_ad and not _ad_showing:
 		_do_pending_restart()
 
+# --- ödüllü reklam (revive + Neon teması açma) ---
+
+func _get_rewarded_unit_id() -> String:
+	if OS.get_name() == "Android":
+		return REWARDED_ID_ANDROID_TEST if OS.is_debug_build() else REWARDED_ID_ANDROID
+	return REWARDED_ID_IOS_TEST
+
+func load_rewarded_ad() -> void:
+	RewardedAdLoader.new().load(_get_rewarded_unit_id(), AdRequest.new(), rewarded_ad_load_callback)
+
+func _on_rewarded_loaded(ad: RewardedAd) -> void:
+	rewarded_ad = ad
+	rewarded_ad.full_screen_content_callback.on_ad_dismissed_full_screen_content = _on_rewarded_dismissed
+	rewarded_ad.full_screen_content_callback.on_ad_failed_to_show_full_screen_content = _on_rewarded_failed_to_show
+	if start_panel.visible:
+		_refresh_unlock_neon_button()
+
+func _on_rewarded_failed(_error: LoadAdError) -> void:
+	rewarded_ad = null
+
+func rewarded_ready() -> bool:
+	return rewarded_ad != null
+
+func _show_rewarded(purpose: String) -> void:
+	if rewarded_ad == null or waiting_for_ad:
+		return
+	_rewarded_purpose = purpose
+	_rewarded_reward_earned = false
+	waiting_for_ad = true
+	var listener := OnUserEarnedRewardListener.new()
+	listener.on_user_earned_reward = func(_item): _rewarded_reward_earned = true
+	rewarded_ad.show(listener)
+	rewarded_ad = null
+	load_rewarded_ad()   # bir sonrakini hazırla
+
+func _on_rewarded_dismissed() -> void:
+	waiting_for_ad = false
+	var purpose := _rewarded_purpose
+	var earned := _rewarded_reward_earned
+	_rewarded_purpose = ""
+	_rewarded_reward_earned = false
+	if earned:
+		_grant_reward(purpose)
+
+func _on_rewarded_failed_to_show(_error: AdError) -> void:
+	waiting_for_ad = false
+	_rewarded_purpose = ""
+	_rewarded_reward_earned = false
+
+func _grant_reward(purpose: String) -> void:
+	match purpose:
+		"revive":
+			_revive()
+		"unlock_neon":
+			GameState.unlock_theme(2)
+			setup_start_panel()
+
+func _refresh_unlock_neon_button() -> void:
+	var neon_locked: bool = 2 not in GameState.unlocked_themes
+	unlock_neon_button.visible = neon_locked and rewarded_ready()
+
+func _on_unlock_neon_pressed() -> void:
+	if 2 in GameState.unlocked_themes:
+		unlock_neon_button.visible = false
+		return
+	_show_rewarded("unlock_neon")
+
+func _on_revive_pressed() -> void:
+	if not game_over or _used_revive_this_run:
+		return
+	revive_button.visible = false
+	_show_rewarded("revive")
+
+func _revive() -> void:
+	_used_revive_this_run = true
+	_vibrate(15)
+	_reset_field(true)
+	can_restart = true
+
 func _on_share_pressed():
 	if share_node == null or not share_node.has_method("share_image"):
 		return
@@ -519,6 +634,7 @@ func setup_start_panel():
 		var label = start_panel.get_node(theme_label_paths[i])
 		label.text = theme_names[i]
 	_swatches_connected = true
+	_refresh_unlock_neon_button()
 
 func update_swatch_visual(swatch: Button, index: int):
 	var is_unlocked = index in GameState.unlocked_themes
@@ -616,6 +732,9 @@ func update_swatch_visual(swatch: Button, index: int):
 
 func _on_swatch_pressed(index: int):
 	if index not in GameState.unlocked_themes:
+		# kilitli Neon'a dokunulduysa ve ödüllü reklam hazırsa: aç teklifini göster
+		if index == 2 and rewarded_ready():
+			_show_rewarded("unlock_neon")
 		return
 	GameState.active_theme = index
 	GameState.save_data()
@@ -625,6 +744,7 @@ func _on_swatch_pressed(index: int):
 
 func start_game():
 	game_started = true
+	_used_revive_this_run = false
 	start_panel.visible = false
 	pause_button.visible = true
 	_apply_music()
@@ -634,11 +754,18 @@ func start_game():
 		next_gate_y -= get_next_spacing()
 
 func restart_run():
+	_used_revive_this_run = false
+	_reset_field(false)
+
+# keep_progress = true -> revive (skor/hız/renk korunur); false -> tam yeniden başlat
+func _reset_field(keep_progress: bool) -> void:
 	game_over = false
-	score = 0
-	current_color_index = 0
-	scroll_speed = 220.0
-	gate_spawn_count = 0
+	_pending_gate = null
+	if not keep_progress:
+		score = 0
+		current_color_index = 0
+		scroll_speed = 220.0
+		gate_spawn_count = 0
 	next_gate_y = -300.0
 	last_spawned_gate = null
 
@@ -659,7 +786,7 @@ func restart_run():
 		_death_flash.color.a = 0.0
 	update_chameleon_color(colors[current_color_index], false)
 
-	score_label.text = "0"
+	score_label.text = str(score)
 	score_label.scale = Vector2.ONE
 	score_label.modulate = Color(1, 1, 1, 1)
 	score_label.visible = true
@@ -670,7 +797,7 @@ func restart_run():
 	while not is_instance_valid(last_spawned_gate) or last_spawned_gate.position.y > -2600.0:
 		spawn_gate(next_gate_y)
 		next_gate_y -= get_next_spacing()
-		
+
 func check_retroactive_unlocks():
 	if GameState.high_score >= 15 and 1 not in GameState.unlocked_themes:
 		GameState.unlock_theme(1)
@@ -738,6 +865,7 @@ func _return_to_menu() -> void:
 	game_started = false
 	game_over = false
 	can_restart = false
+	_pending_gate = null
 	score = 0
 	current_color_index = 0
 	scroll_speed = 220.0

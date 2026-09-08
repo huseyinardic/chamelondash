@@ -388,6 +388,13 @@ theme_override_fonts/font = ExtResource("2_h2yge")
 theme_override_font_sizes/font_size = 22
 text = "Neon"
 
+[node name="UnlockNeonButton" type="Button" parent="UI/StartPanel/ContentBox"]
+visible = false
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_h2yge")
+theme_override_font_sizes/font_size = 22
+text = "▶ Watch ad: unlock Neon"
+
 [node name="SettingsRow" type="HBoxContainer" parent="UI/StartPanel/ContentBox" unique_id=377446604]
 layout_mode = 2
 theme_override_constants/separation = 14
@@ -458,6 +465,13 @@ layout_mode = 2
 theme_override_fonts/font = ExtResource("2_h2yge")
 theme_override_font_sizes/font_size = 36
 text = "Best: X"
+
+[node name="ReviveButton" type="Button" parent="UI/GameOverPanel"]
+visible = false
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_h2yge")
+theme_override_font_sizes/font_size = 30
+text = "▶ Watch ad to continue"
 
 [node name="StreakLabel" type="Label" parent="UI/GameOverPanel" unique_id=831276297]
 layout_mode = 2
