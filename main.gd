@@ -83,6 +83,8 @@ var _rewarded_reward_earned := false
 var _rewarded_dismissed := false
 var _reward_deadline := 0            # dismiss sonrası ödülü bekleme son anı (ms)
 var _rewarded_active := false        # ödüllü reklam gösteriliyor / çözülmeyi bekliyor
+var _rewarded_shown_msec := 0       # reklamın ekrana geldiği an
+const REWARD_ASSUME_MS := 15000    # bu kadar süre izlendiyse callback gelmese de ödül ver
 var _used_revive_this_run := false
 var waiting_for_ad = false
 var _ads_initialized := false
@@ -554,8 +556,12 @@ func _on_rewarded_loaded(ad: RewardedAd) -> void:
 	rewarded_ad = ad
 	rewarded_ad.full_screen_content_callback.on_ad_dismissed_full_screen_content = _on_rewarded_dismissed
 	rewarded_ad.full_screen_content_callback.on_ad_failed_to_show_full_screen_content = _on_rewarded_failed_to_show
+	rewarded_ad.full_screen_content_callback.on_ad_showed_full_screen_content = _on_rewarded_shown
 	if start_panel.visible:
 		_refresh_unlock_neon_button()
+
+func _on_rewarded_shown() -> void:
+	_rewarded_shown_msec = Time.get_ticks_msec()
 
 func _on_rewarded_failed(_error: LoadAdError) -> void:
 	rewarded_ad = null
@@ -570,6 +576,7 @@ func _show_rewarded(purpose: String) -> void:
 	_rewarded_reward_earned = false
 	_rewarded_dismissed = false
 	_reward_deadline = 0
+	_rewarded_shown_msec = 0
 	_rewarded_active = true
 	waiting_for_ad = true
 	var listener := OnUserEarnedRewardListener.new()
@@ -609,13 +616,22 @@ func _start_rewarded_safety_timeout() -> void:
 func _try_resolve_rewarded() -> void:
 	if not _rewarded_active:
 		return
-	var timed_out: bool = _rewarded_dismissed and _reward_deadline > 0 and Time.get_ticks_msec() >= _reward_deadline
-	if not _rewarded_reward_earned and not timed_out:
-		return   # hâlâ bekliyoruz
+	# Reklam ekrandan GİTMEDEN oyunu devam ettirme. onUserEarnedReward reklam
+	# sürerken gelebilir; o an çözersek oyun reklamın arkasında akmaya başlar.
+	if not _rewarded_dismissed:
+		return
+	# dismiss geldi: ödül geldiyse hemen çöz; gelmediyse kısa süre bekle, sonra ödülsüz çöz.
+	var deadline_passed: bool = _reward_deadline > 0 and Time.get_ticks_msec() >= _reward_deadline
+	if not _rewarded_reward_earned and not deadline_passed:
+		return
+	# Yedek: bazı kreatifler onUserEarnedReward tetiklemiyor. Reklam yeterince
+	# uzun süre ekranda kaldıysa (izlendiyse) callback gelmese de ödülü ver.
+	var watched_long_enough: bool = _rewarded_shown_msec > 0 \
+		and Time.get_ticks_msec() - _rewarded_shown_msec >= REWARD_ASSUME_MS
 	_rewarded_active = false
 	waiting_for_ad = false
 	var purpose := _rewarded_purpose
-	var earned := _rewarded_reward_earned
+	var earned: bool = _rewarded_reward_earned or watched_long_enough
 	_rewarded_purpose = ""
 	_rewarded_reward_earned = false
 	_rewarded_dismissed = false
