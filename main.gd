@@ -80,6 +80,9 @@ var rewarded_ad: RewardedAd
 var rewarded_ad_load_callback := RewardedAdLoadCallback.new()
 var _rewarded_purpose := ""          # "revive" | "unlock_neon"
 var _rewarded_reward_earned := false
+var _rewarded_dismissed := false
+var _reward_deadline := 0            # dismiss sonrası ödülü bekleme son anı (ms)
+var _rewarded_active := false        # ödüllü reklam gösteriliyor / çözülmeyi bekliyor
 var _used_revive_this_run := false
 var waiting_for_ad = false
 var _ads_initialized := false
@@ -92,6 +95,9 @@ var can_restart = false
 var _pending_gate: ColorRect = null
 var _pending_deadline := 0
 const COYOTE_MS := 90
+
+# revive sonrası kısa dokunulmazlık
+var _revive_grace_until := 0
 
 var _swatches_connected := false
 
@@ -118,7 +124,8 @@ func _ready():
 
 	theme_button.pressed.connect(_on_theme_button_pressed)
 	theme_button.text = "Theme: " + theme_names[GameState.active_theme]
-	
+	_apply_safe_area()
+
 	dim_overlay.visible = false
 	game_over_panel.visible = false
 	unlock_notice_label.visible = false
@@ -179,6 +186,8 @@ func spawn_gate(y_pos: float):
 	
 func _process(delta):
 	_update_juice(delta)
+	if _rewarded_active:
+		_try_resolve_rewarded()   # dismiss sonrası ödül bekleme süresini kontrol et
 	if not game_started or game_over:
 		return
 
@@ -216,6 +225,12 @@ func _update_juice(delta):
 		vignette.self_modulate.a = 1.0 + sr * 0.5
 	chameleon.position = _cham_home + shake_off + Vector2(0.0, bob)
 
+	# revive sonrası dokunulmazlık: bukalemun yanıp söner ("geri döndün, kısa süre güvendesin")
+	if Time.get_ticks_msec() < _revive_grace_until:
+		chameleon.modulate.a = 0.35 + 0.65 * abs(sin(Time.get_ticks_msec() * 0.018))
+	elif chameleon.modulate.a != 1.0:
+		chameleon.modulate.a = 1.0
+
 func _squash(node: Control, amount: Vector2) -> void:
 	node.pivot_offset = node.size / 2
 	node.scale = amount
@@ -249,6 +264,8 @@ func _play_death_juice() -> void:
 	ct.tween_property(chameleon, "rotation", chameleon.rotation + 1.3, 0.35)
 
 func check_gate_collision(gate: ColorRect):
+	if Time.get_ticks_msec() < _revive_grace_until:
+		return   # revive sonrası kısa dokunulmazlık: bariyer zararsız geçer
 	if gate.get_meta("color_index") == current_color_index:
 		_award_pass(gate)
 	else:
@@ -258,6 +275,9 @@ func check_gate_collision(gate: ColorRect):
 
 func _resolve_pending_gate() -> void:
 	if _pending_gate == null:
+		return
+	if Time.get_ticks_msec() < _revive_grace_until:
+		_pending_gate = null
 		return
 	if not is_instance_valid(_pending_gate):
 		_pending_gate = null
@@ -384,8 +404,11 @@ func end_game():
 # --- Reklam kurulumu: önce UMP consent, sonra MobileAds.initialize() ---
 
 func _setup_ads() -> void:
-	# Reklamlar sadece mobilde çalışır; editör/masaüstünde consent akışını atla.
+	# Mobil dışında (editör/masaüstü) consent akışı yok; mock reklamlarla test için
+	# doğrudan başlat. Editörde addon mock plugin'leri devreye girer, cihaz dışı
+	# release'de _get_plugin null döner ve yükleyiciler sessizce no-op olur.
 	if OS.get_name() != "Android" and OS.get_name() != "iOS":
+		_initialize_ads()
 		return
 	_request_consent()
 
@@ -434,7 +457,7 @@ func _initialize_ads() -> void:
 	# Test cihazları (logcat'teki setTestDeviceIds değeri) — release build'de bile test reklamı gösterir:
 	conf.test_device_ids = ["0A19F3B168FC5DE628D41FE1E5BB333B", "D5B8A059081C01DFD1A8E0E2401DBAC3"]
 	MobileAds.set_request_configuration(conf)
-	await get_tree().create_timer(1.5).timeout
+	await get_tree().create_timer(0.1).timeout
 	load_interstitial_ad()
 	load_rewarded_ad()
 
@@ -473,9 +496,7 @@ func _show_interstitial_then_restart() -> void:
 	_ad_showing = false
 	GameState.last_ad_msec = Time.get_ticks_msec()
 	GameState.games_since_ad = 0
-	interstitial_ad.show()
-	interstitial_ad = null
-	load_interstitial_ad()   # bir sonraki reklamı hazırla (sahne yeniden yüklenmiyor)
+	interstitial_ad.show()   # referansı burada null'lama — callback'ler için canlı tut
 	_start_ad_safety_timeout()
 
 func _do_pending_restart() -> void:
@@ -483,6 +504,8 @@ func _do_pending_restart() -> void:
 		return
 	_pending_restart = false
 	waiting_for_ad = false
+	interstitial_ad = null
+	load_interstitial_ad()   # bir sonrakini hazırla (sahne yeniden yüklenmiyor)
 	restart_run()
 
 func _on_ad_shown() -> void:
@@ -503,6 +526,21 @@ func _start_ad_safety_timeout() -> void:
 		_do_pending_restart()
 
 # --- ödüllü reklam (revive + Neon teması açma) ---
+
+func _apply_safe_area() -> void:
+	# Çentikli / delik kameralı telefonlarda üst UI'yi status bar'ın altına it.
+	var safe := DisplayServer.get_display_safe_area()
+	var win := DisplayServer.window_get_size()
+	if win.y <= 0:
+		return
+	var scale_y: float = get_viewport_rect().size.y / float(win.y)
+	var top_inset: float = float(safe.position.y) * scale_y
+	if top_inset <= 0.0:
+		return
+	score_label.offset_top += top_inset
+	score_label.offset_bottom += top_inset
+	pause_button.offset_top += top_inset
+	pause_button.offset_bottom += top_inset
 
 func _get_rewarded_unit_id() -> String:
 	if OS.get_name() == "Android":
@@ -526,30 +564,66 @@ func rewarded_ready() -> bool:
 	return rewarded_ad != null
 
 func _show_rewarded(purpose: String) -> void:
-	if rewarded_ad == null or waiting_for_ad:
+	if rewarded_ad == null or _rewarded_active or waiting_for_ad:
 		return
 	_rewarded_purpose = purpose
 	_rewarded_reward_earned = false
+	_rewarded_dismissed = false
+	_reward_deadline = 0
+	_rewarded_active = true
 	waiting_for_ad = true
 	var listener := OnUserEarnedRewardListener.new()
-	listener.on_user_earned_reward = func(_item): _rewarded_reward_earned = true
-	rewarded_ad.show(listener)
-	rewarded_ad = null
-	load_rewarded_ad()   # bir sonrakini hazırla
+	listener.on_user_earned_reward = _on_reward_earned
+	rewarded_ad.show(listener)   # referansı burada null'lama — callback'ler için canlı tut
+	_start_rewarded_safety_timeout()
+
+# onUserEarnedReward, onAdDismissed'dan ÖNCE ya da SONRA gelebilir (AdMob dokümanı).
+# Sıraya/kareye güvenme: her iki sinyali de kaydet, kararı _try_resolve_rewarded ver.
+func _on_reward_earned(_item) -> void:
+	_rewarded_reward_earned = true
+	_try_resolve_rewarded()
 
 func _on_rewarded_dismissed() -> void:
+	_rewarded_dismissed = true
+	# ödül callback'i dismiss'ten birkaç saniye sonra gelebilir (özellikle release'de).
+	# O yüzden hemen "ödülsüz" kapatma; kısa bir süre bekle.
+	if _reward_deadline == 0:
+		_reward_deadline = Time.get_ticks_msec() + 2500
+	_try_resolve_rewarded()
+
+func _on_rewarded_failed_to_show(_error: AdError) -> void:
+	_rewarded_dismissed = true
+	_reward_deadline = Time.get_ticks_msec()   # hemen çöz (ödülsüz)
+	_try_resolve_rewarded()
+
+func _start_rewarded_safety_timeout() -> void:
+	# Ödüllü reklam makul sürede kapanmazsa UI'yi kilitli bırakma.
+	await get_tree().create_timer(45.0).timeout
+	if _rewarded_active:
+		_rewarded_dismissed = true
+		_reward_deadline = Time.get_ticks_msec()
+		_try_resolve_rewarded()
+
+# Çözülme koşulu: ödül geldi, VEYA reklam kapandı ve bekleme süresi doldu.
+# _process her karede çağırır (bekleme süresini kontrol etmek için).
+func _try_resolve_rewarded() -> void:
+	if not _rewarded_active:
+		return
+	var timed_out: bool = _rewarded_dismissed and _reward_deadline > 0 and Time.get_ticks_msec() >= _reward_deadline
+	if not _rewarded_reward_earned and not timed_out:
+		return   # hâlâ bekliyoruz
+	_rewarded_active = false
 	waiting_for_ad = false
 	var purpose := _rewarded_purpose
 	var earned := _rewarded_reward_earned
 	_rewarded_purpose = ""
 	_rewarded_reward_earned = false
+	_rewarded_dismissed = false
+	_reward_deadline = 0
+	rewarded_ad = null
+	load_rewarded_ad()   # bir sonrakini hazırla
 	if earned:
 		_grant_reward(purpose)
-
-func _on_rewarded_failed_to_show(_error: AdError) -> void:
-	waiting_for_ad = false
-	_rewarded_purpose = ""
-	_rewarded_reward_earned = false
 
 func _grant_reward(purpose: String) -> void:
 	match purpose:
@@ -579,7 +653,14 @@ func _revive() -> void:
 	_used_revive_this_run = true
 	_vibrate(15)
 	_reset_field(true)
+	# game-over panelini bir sonraki sefer için animasyon-öncesi hâline al
+	game_over_panel.modulate.a = 0.0
+	game_over_panel.scale = Vector2(0.7, 0.7)
 	can_restart = true
+	_revive_grace_until = Time.get_ticks_msec() + 1800   # ~1.8 sn dokunulmazlık
+	# "geri döndün" geri bildirimi
+	_pop_label(score_label, 1.4)
+	_shake = 5.0
 
 func _on_share_pressed():
 	if share_node == null or not share_node.has_method("share_image"):
@@ -762,6 +843,7 @@ func _reset_field(keep_progress: bool) -> void:
 	game_over = false
 	_pending_gate = null
 	if not keep_progress:
+		_revive_grace_until = 0
 		score = 0
 		current_color_index = 0
 		scroll_speed = 220.0
@@ -777,6 +859,7 @@ func _reset_field(keep_progress: bool) -> void:
 	chameleon_y_position = chameleon.position.y
 	chameleon.scale = Vector2.ONE
 	chameleon.rotation = 0.0
+	chameleon.modulate.a = 1.0
 	_cham_home = chameleon.position
 	_shake = 0.0
 	_idle_t = 0.0
@@ -866,6 +949,7 @@ func _return_to_menu() -> void:
 	game_over = false
 	can_restart = false
 	_pending_gate = null
+	_revive_grace_until = 0
 	score = 0
 	current_color_index = 0
 	scroll_speed = 220.0
@@ -885,6 +969,7 @@ func _return_to_menu() -> void:
 	chameleon_y_position = chameleon.position.y
 	chameleon.scale = Vector2.ONE
 	chameleon.rotation = 0.0
+	chameleon.modulate.a = 1.0
 	_cham_home = chameleon.position
 	update_chameleon_color(colors[current_color_index], false)
 
