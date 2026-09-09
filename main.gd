@@ -603,10 +603,23 @@ func _on_rewarded_failed_to_show(_error: AdError) -> void:
 	_reward_deadline = Time.get_ticks_msec()   # hemen çöz (ödülsüz)
 	_try_resolve_rewarded()
 
+func _notification(what: int) -> void:
+	# Tam ekran reklam kapandığında uygulama tekrar öne gelir (pencere fokusu döner).
+	# Bu, plugin'in dismiss callback'i gelmese bile güvenilir "reklam bitti" sinyali;
+	# ve reklam AÇIKKEN asla tetiklenmez (o sırada fokus bizde değil).
+	if what == NOTIFICATION_APPLICATION_RESUMED or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
+		if _rewarded_active:
+			_rewarded_dismissed = true
+			if _reward_deadline == 0:
+				_reward_deadline = Time.get_ticks_msec() + 2500
+			_try_resolve_rewarded()
+
 func _start_rewarded_safety_timeout() -> void:
-	# Ödüllü reklam makul sürede kapanmazsa UI'yi kilitli bırakma.
-	await get_tree().create_timer(45.0).timeout
-	if _rewarded_active:
+	# Son çare: reklam kapandı ama hiçbir sinyal gelmediyse UI'yi kilitli bırakma.
+	# Yalnızca pencere fokusu bizdeyken (yani reklam artık EKRANDA DEĞİLKEN) çöz —
+	# uzun playable reklam sürerken erken tetiklenmesin.
+	await get_tree().create_timer(120.0).timeout
+	if _rewarded_active and get_window().has_focus():
 		_rewarded_dismissed = true
 		_reward_deadline = Time.get_ticks_msec()
 		_try_resolve_rewarded()
