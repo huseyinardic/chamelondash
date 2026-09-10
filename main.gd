@@ -1,6 +1,6 @@
 extends Node2D
 
-@onready var chameleon: Panel = $Chameleon
+@onready var chameleon: ChameleonBody = $Chameleon
 @onready var gates_container: Node2D = $Gates
 @onready var score_label: Label = $UI/ScoreLabel
 @onready var vignette: TextureRect = $UI/Vignette
@@ -133,9 +133,8 @@ func _ready():
 	unlock_notice_label.visible = false
 	game_over_panel.modulate.a = 0.0
 	game_over_panel.scale = Vector2(0.7, 0.7)
-	chameleon.position = Vector2(screen_size.x / 2 - chameleon.size.x / 2, screen_size.y * 0.75)
+	chameleon.position = Vector2(screen_size.x / 2.0, screen_size.y * 0.75)
 	chameleon_y_position = chameleon.position.y
-	chameleon.pivot_offset = chameleon.size / 2
 	_cham_home = chameleon.position
 	update_chameleon_color(colors[current_color_index], false)
 
@@ -233,8 +232,7 @@ func _update_juice(delta):
 	elif chameleon.modulate.a != 1.0:
 		chameleon.modulate.a = 1.0
 
-func _squash(node: Control, amount: Vector2) -> void:
-	node.pivot_offset = node.size / 2
+func _squash(node: Node2D, amount: Vector2) -> void:
 	node.scale = amount
 	create_tween().tween_property(node, "scale", Vector2.ONE, 0.22) \
 		.set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
@@ -258,7 +256,6 @@ func _play_death_juice() -> void:
 		var ft := create_tween()
 		ft.tween_property(_death_flash, "color:a", 0.2, 0.04)
 		ft.tween_property(_death_flash, "color:a", 0.0, 0.26)
-	chameleon.pivot_offset = chameleon.size / 2
 	var ct := create_tween()
 	ct.set_parallel(true)
 	ct.tween_property(chameleon, "scale", Vector2(0.1, 0.1), 0.35) \
@@ -310,20 +307,11 @@ func _award_pass(gate: ColorRect):
 		create_tween().tween_property(score_label, "modulate", Color(1, 1, 1, 1), 0.45)
 
 func update_chameleon_color(new_color: Color, animate: bool = true):
-	_tint_chameleon(chameleon, new_color, animate)
 	if animate:
+		create_tween().tween_property(chameleon, "skin", new_color, 0.15)
 		_squash(chameleon, Vector2(1.18, 0.82))
-
-func _tint_chameleon(node: Node, new_color: Color, animate: bool) -> void:
-	# "notint" grubundakiler (göz akı, göz bebeği, ağız) hariç tüm parçaları boya
-	if node is CanvasItem and not node.is_in_group("notint"):
-		if animate:
-			var tween = create_tween()
-			tween.tween_property(node, "self_modulate", new_color, 0.15)
-		else:
-			node.self_modulate = new_color
-	for child in node.get_children():
-		_tint_chameleon(child, new_color, animate)
+	else:
+		chameleon.skin = new_color
 
 func _unhandled_input(event):
 	if not game_started:
@@ -884,7 +872,7 @@ func _reset_field(keep_progress: bool) -> void:
 		gate.queue_free()
 
 	var screen_size = get_viewport_rect().size
-	chameleon.position = Vector2(screen_size.x / 2 - chameleon.size.x / 2, screen_size.y * 0.75)
+	chameleon.position = Vector2(screen_size.x / 2.0, screen_size.y * 0.75)
 	chameleon_y_position = chameleon.position.y
 	chameleon.scale = Vector2.ONE
 	chameleon.rotation = 0.0
@@ -994,7 +982,7 @@ func _return_to_menu() -> void:
 	vignette.self_modulate = Color(1, 1, 1, 1)
 
 	var screen_size = get_viewport_rect().size
-	chameleon.position = Vector2(screen_size.x / 2 - chameleon.size.x / 2, screen_size.y * 0.75)
+	chameleon.position = Vector2(screen_size.x / 2.0, screen_size.y * 0.75)
 	chameleon_y_position = chameleon.position.y
 	chameleon.scale = Vector2.ONE
 	chameleon.rotation = 0.0

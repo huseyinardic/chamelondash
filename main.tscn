@@ -9,29 +9,7 @@
 [ext_resource type="AudioStream" uid="uid://daxdkh6gslebf" path="res://sounds/error_003.ogg" id="5_7mycd"]
 [ext_resource type="Script" uid="uid://w77upulum5ge" path="res://addons/SharePlugin/Share.gd" id="6_share"]
 [ext_resource type="Script" uid="uid://clsfk8fwup768" path="res://icon_button.gd" id="7_iconbtn"]
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_cham"]
-
-[sub_resource type="StyleBoxFlat" id="sb_body"]
-bg_color = Color(1, 1, 1, 1)
-corner_radius_top_left = 40
-corner_radius_top_right = 40
-corner_radius_bottom_right = 40
-corner_radius_bottom_left = 40
-
-[sub_resource type="StyleBoxFlat" id="sb_sharp"]
-bg_color = Color(1, 1, 1, 1)
-corner_radius_top_left = 2
-corner_radius_top_right = 2
-corner_radius_bottom_right = 2
-corner_radius_bottom_left = 2
-
-[sub_resource type="StyleBoxFlat" id="sb_dark"]
-bg_color = Color(0.09, 0.1, 0.12, 1)
-corner_radius_top_left = 40
-corner_radius_top_right = 40
-corner_radius_bottom_right = 40
-corner_radius_bottom_left = 40
+[ext_resource type="Script" uid="uid://bd6p6r85reewr" path="res://chameleon.gd" id="8_cham"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lquwl"]
 
@@ -39,42 +17,42 @@ corner_radius_bottom_left = 40
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_272bh"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_kek77"]
-bg_color = Color(0.13, 0.15, 0.14, 1)
-corner_radius_top_left = 13
-corner_radius_top_right = 13
-corner_radius_bottom_right = 13
-corner_radius_bottom_left = 13
-
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_4c57u"]
-bg_color = Color(0.19, 0.22, 0.21, 1)
+bg_color = Color(0.13, 0.15, 0.14, 1)
 corner_radius_top_left = 13
 corner_radius_top_right = 13
 corner_radius_bottom_right = 13
 corner_radius_bottom_left = 13
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_efxa6"]
-bg_color = Color(0.13, 0.15, 0.14, 1)
-corner_radius_top_left = 13
-corner_radius_top_right = 13
-corner_radius_bottom_right = 13
-corner_radius_bottom_left = 13
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dg77c"]
 bg_color = Color(0.19, 0.22, 0.21, 1)
 corner_radius_top_left = 13
 corner_radius_top_right = 13
 corner_radius_bottom_right = 13
 corner_radius_bottom_left = 13
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ycdy4"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dg77c"]
 bg_color = Color(0.13, 0.15, 0.14, 1)
 corner_radius_top_left = 13
 corner_radius_top_right = 13
 corner_radius_bottom_right = 13
 corner_radius_bottom_left = 13
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ycdy4"]
+bg_color = Color(0.19, 0.22, 0.21, 1)
+corner_radius_top_left = 13
+corner_radius_top_right = 13
+corner_radius_bottom_right = 13
+corner_radius_bottom_left = 13
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_w48qg"]
+bg_color = Color(0.13, 0.15, 0.14, 1)
+corner_radius_top_left = 13
+corner_radius_top_right = 13
+corner_radius_bottom_right = 13
+corner_radius_bottom_left = 13
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_vivmo"]
 bg_color = Color(0.19, 0.22, 0.21, 1)
 corner_radius_top_left = 13
 corner_radius_top_right = 13
@@ -111,221 +89,8 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("2_7mycd")
 
-[node name="Chameleon" type="Panel" parent="." unique_id=625975160]
-offset_right = 78.0
-offset_bottom = 46.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("StyleBoxEmpty_cham")
-
-[node name="LegBack" type="Panel" parent="Chameleon" unique_id=840264311]
-layout_mode = 0
-offset_left = 25.0
-offset_top = 30.0
-offset_right = 33.0
-offset_bottom = 46.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="LegFront" type="Panel" parent="Chameleon" unique_id=2069878756]
-layout_mode = 0
-offset_left = 53.0
-offset_top = 30.0
-offset_right = 61.0
-offset_bottom = 46.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="FootBackA" type="Panel" parent="Chameleon" unique_id=370916948]
-layout_mode = 0
-offset_left = 23.0
-offset_top = 39.0
-offset_right = 29.0
-offset_bottom = 49.0
-rotation = 0.35
-pivot_offset = Vector2(3, 5)
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="FootBackB" type="Panel" parent="Chameleon" unique_id=1432577808]
-layout_mode = 0
-offset_left = 29.0
-offset_top = 39.0
-offset_right = 35.0
-offset_bottom = 49.0
-rotation = -0.35
-pivot_offset = Vector2(3, 5)
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="FootFrontA" type="Panel" parent="Chameleon" unique_id=1707099514]
-layout_mode = 0
-offset_left = 51.0
-offset_top = 39.0
-offset_right = 57.0
-offset_bottom = 49.0
-rotation = 0.35
-pivot_offset = Vector2(3, 5)
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="FootFrontB" type="Panel" parent="Chameleon" unique_id=618722048]
-layout_mode = 0
-offset_left = 57.0
-offset_top = 39.0
-offset_right = 63.0
-offset_bottom = 49.0
-rotation = -0.35
-pivot_offset = Vector2(3, 5)
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="Tail1" type="Panel" parent="Chameleon" unique_id=1555947043]
-layout_mode = 0
-offset_left = 2.0
-offset_top = 28.0
-offset_right = 18.0
-offset_bottom = 44.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="Tail2" type="Panel" parent="Chameleon" unique_id=931680732]
-layout_mode = 0
-offset_left = -10.0
-offset_top = 24.0
-offset_right = 4.0
-offset_bottom = 38.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="Tail3" type="Panel" parent="Chameleon" unique_id=1184461901]
-layout_mode = 0
-offset_left = -16.0
-offset_top = 15.0
-offset_right = -4.0
-offset_bottom = 27.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="Tail4" type="Panel" parent="Chameleon" unique_id=2032676900]
-layout_mode = 0
-offset_left = -12.0
-offset_top = 5.0
-offset_right = -2.0
-offset_bottom = 15.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="Tail5" type="Panel" parent="Chameleon" unique_id=133572168]
-layout_mode = 0
-offset_left = -2.0
-offset_top = 3.0
-offset_right = 6.0
-offset_bottom = 11.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="Tail6" type="Panel" parent="Chameleon" unique_id=623005240]
-layout_mode = 0
-offset_left = 5.0
-offset_top = 10.0
-offset_right = 12.0
-offset_bottom = 17.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="BackHump" type="Panel" parent="Chameleon" unique_id=1562791876]
-layout_mode = 0
-offset_left = 18.0
-offset_top = -1.0
-offset_right = 66.0
-offset_bottom = 24.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="Casque" type="Panel" parent="Chameleon" unique_id=1613623098]
-layout_mode = 0
-offset_left = 42.0
-offset_top = -12.0
-offset_right = 66.0
-offset_bottom = 8.0
-rotation = -0.42
-pivot_offset = Vector2(12, 10)
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_sharp")
-
-[node name="CasqueFill" type="Panel" parent="Chameleon" unique_id=745927540]
-layout_mode = 0
-offset_left = 46.0
-offset_top = -3.0
-offset_right = 68.0
-offset_bottom = 14.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="Body" type="Panel" parent="Chameleon" unique_id=142419893]
-layout_mode = 0
-offset_left = 15.0
-offset_top = 10.0
-offset_right = 65.0
-offset_bottom = 42.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="Head" type="Panel" parent="Chameleon" unique_id=1649197800]
-layout_mode = 0
-offset_left = 54.0
-offset_top = 6.0
-offset_right = 80.0
-offset_bottom = 34.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="Snout" type="Panel" parent="Chameleon" unique_id=129041047]
-layout_mode = 0
-offset_left = 71.0
-offset_top = 18.0
-offset_right = 83.0
-offset_bottom = 30.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="HeadPod" type="Panel" parent="Chameleon" unique_id=551661872]
-layout_mode = 0
-offset_left = 57.0
-offset_top = 5.0
-offset_right = 77.0
-offset_bottom = 25.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="EyeWhite" type="Panel" parent="Chameleon" unique_id=927930765 groups=["notint"]]
-layout_mode = 0
-offset_left = 66.0
-offset_top = 12.0
-offset_right = 75.0
-offset_bottom = 21.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_body")
-
-[node name="Pupil" type="Panel" parent="Chameleon" unique_id=1554022788 groups=["notint"]]
-layout_mode = 0
-offset_left = 68.0
-offset_top = 15.0
-offset_right = 73.0
-offset_bottom = 20.0
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_dark")
-
-[node name="Mouth" type="Panel" parent="Chameleon" unique_id=2119405753 groups=["notint"]]
-layout_mode = 0
-offset_left = 68.0
-offset_top = 26.0
-offset_right = 83.0
-offset_bottom = 29.0
-rotation = 0.12
-pivot_offset = Vector2(7.5, 1.5)
-mouse_filter = 2
-theme_override_styles/panel = SubResource("sb_dark")
+[node name="Chameleon" type="Node2D" parent="." unique_id=625975160]
+script = ExtResource("8_cham")
 
 [node name="Gates" type="Node2D" parent="." unique_id=772200592]
 
@@ -465,20 +230,20 @@ alignment = 1
 custom_minimum_size = Vector2(56, 48)
 layout_mode = 2
 focus_mode = 0
-theme_override_styles/normal = SubResource("StyleBoxFlat_kek77")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_4c57u")
-theme_override_styles/hover = SubResource("StyleBoxFlat_4c57u")
-theme_override_styles/focus = SubResource("StyleBoxFlat_kek77")
+theme_override_styles/normal = SubResource("StyleBoxFlat_4c57u")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_efxa6")
+theme_override_styles/hover = SubResource("StyleBoxFlat_efxa6")
+theme_override_styles/focus = SubResource("StyleBoxFlat_4c57u")
 script = ExtResource("7_iconbtn")
 
 [node name="VibeButton" type="Button" parent="UI/StartPanel/ContentBox/SettingsRow" unique_id=1839592012]
 custom_minimum_size = Vector2(56, 48)
 layout_mode = 2
 focus_mode = 0
-theme_override_styles/normal = SubResource("StyleBoxFlat_efxa6")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_dg77c")
-theme_override_styles/hover = SubResource("StyleBoxFlat_dg77c")
-theme_override_styles/focus = SubResource("StyleBoxFlat_efxa6")
+theme_override_styles/normal = SubResource("StyleBoxFlat_dg77c")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_ycdy4")
+theme_override_styles/hover = SubResource("StyleBoxFlat_ycdy4")
+theme_override_styles/focus = SubResource("StyleBoxFlat_dg77c")
 script = ExtResource("7_iconbtn")
 kind = 1
 
@@ -486,10 +251,10 @@ kind = 1
 custom_minimum_size = Vector2(56, 48)
 layout_mode = 2
 focus_mode = 0
-theme_override_styles/normal = SubResource("StyleBoxFlat_ycdy4")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_w48qg")
-theme_override_styles/hover = SubResource("StyleBoxFlat_w48qg")
-theme_override_styles/focus = SubResource("StyleBoxFlat_ycdy4")
+theme_override_styles/normal = SubResource("StyleBoxFlat_w48qg")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_vivmo")
+theme_override_styles/hover = SubResource("StyleBoxFlat_vivmo")
+theme_override_styles/focus = SubResource("StyleBoxFlat_w48qg")
 script = ExtResource("7_iconbtn")
 kind = 2
 
