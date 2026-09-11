@@ -155,6 +155,8 @@ func _ready():
 	pause_panel.get_node("Box/ResumeButton").pressed.connect(_on_resume_pressed)
 	pause_panel.get_node("Box/MenuButton").pressed.connect(_on_pause_menu_pressed)
 	_refresh_settings_ui()
+	if music_player.stream:
+		music_player.stream.loop = true
 	_apply_music()
 
 	setup_start_panel()
@@ -494,12 +496,14 @@ func _do_pending_restart() -> void:
 		return
 	_pending_restart = false
 	waiting_for_ad = false
+	music_player.stream_paused = false
 	interstitial_ad = null
 	load_interstitial_ad()   # bir sonrakini hazırla (sahne yeniden yüklenmiyor)
 	restart_run()
 
 func _on_ad_shown() -> void:
 	_ad_showing = true
+	music_player.stream_paused = true
 
 func _on_ad_dismissed() -> void:
 	waiting_for_ad = false
@@ -550,6 +554,7 @@ func _on_rewarded_loaded(ad: RewardedAd) -> void:
 
 func _on_rewarded_shown() -> void:
 	_rewarded_shown_msec = Time.get_ticks_msec()
+	music_player.stream_paused = true
 
 func _on_rewarded_failed(_error: LoadAdError) -> void:
 	rewarded_ad = null
@@ -592,10 +597,17 @@ func _on_rewarded_failed_to_show(_error: AdError) -> void:
 	_try_resolve_rewarded()
 
 func _notification(what: int) -> void:
+	# Uygulama arka plana alınır alınmaz (tam ekran reklam da bunu tetikler) müziği
+	# duraklat; reklam kapanıp öne dönünce kaldığı yerden devam ettir.
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		music_player.stream_paused = true
+		return
+
 	# Tam ekran reklam kapandığında uygulama tekrar öne gelir (pencere fokusu döner).
 	# Bu, plugin'in dismiss callback'i gelmese bile güvenilir "reklam bitti" sinyali;
 	# ve reklam AÇIKKEN asla tetiklenmez (o sırada fokus bizde değil).
 	if what == NOTIFICATION_APPLICATION_RESUMED or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
+		music_player.stream_paused = false
 		if _rewarded_active:
 			_rewarded_dismissed = true
 			if _reward_deadline == 0:
@@ -631,6 +643,7 @@ func _try_resolve_rewarded() -> void:
 		and Time.get_ticks_msec() - _rewarded_shown_msec >= REWARD_ASSUME_MS
 	_rewarded_active = false
 	waiting_for_ad = false
+	music_player.stream_paused = false
 	var purpose := _rewarded_purpose
 	var earned: bool = _rewarded_reward_earned or watched_long_enough
 	_rewarded_purpose = ""
@@ -912,7 +925,7 @@ func _vibrate(ms: int) -> void:
 
 func _apply_music() -> void:
 	if music_player.stream == null:
-		return  # henüz müzik dosyası yok - sounds/ içine bir .ogg koyup MusicPlayer.stream'e ata
+		return
 	if GameState.music_enabled:
 		if not music_player.playing:
 			music_player.play()
