@@ -18,7 +18,9 @@ general/ios/enabled=false
 config/name="Chameleon-Dash"
 run/main_scene="uid://dnqyc2s60npmb"
 config/features=PackedStringArray("4.7", "Mobile")
-config/icon="res://icon.svg"
+boot_splash/image="uid://dw8wslsxgkvue"
+config/icon="uid://bbqn8vp475giv"
+boot_splash/minimum_display_time=1100
 
 [autoload]
 
