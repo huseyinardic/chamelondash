@@ -7,30 +7,52 @@ extends Node2D
 @onready var music_player: AudioStreamPlayer = $MusicPlayer
 @onready var pause_button: Button = $UI/PauseButton
 @onready var pause_panel: Control = $UI/PausePanel
-@onready var sound_button: Button = $UI/StartPanel/ContentBox/SettingsRow/SoundButton
-@onready var vibe_button: Button = $UI/StartPanel/ContentBox/SettingsRow/VibeButton
-@onready var music_button: Button = $UI/StartPanel/ContentBox/SettingsRow/MusicButton
+@onready var sound_button: Button = $UI/StartPanel/SettingsRow/SoundButton
+@onready var vibe_button: Button = $UI/StartPanel/SettingsRow/VibeButton
+@onready var music_button: Button = $UI/StartPanel/SettingsRow/MusicButton
+@onready var settings_row: HBoxContainer = $UI/StartPanel/SettingsRow
 @onready var dim_overlay: ColorRect = $UI/DimOverlay
-@onready var game_over_panel: VBoxContainer = $UI/GameOverPanel
-@onready var final_score_label: Label = $UI/GameOverPanel/FinalScoreLabel
-@onready var high_score_label: Label = $UI/GameOverPanel/HighScoreLabel
+@onready var final_score_label: Label = $UI/ResultsPanel/Top/FinalScoreLabel
+@onready var high_score_label: Label = $UI/ResultsPanel/Top/HighScoreLabel
 @onready var pass_sound: AudioStreamPlayer = $PassSound
 @onready var game_over_sound: AudioStreamPlayer = $GameOverSound
 @onready var share_node: Share = $Share
-@onready var share_button: Button = $UI/GameOverPanel/ShareButton
-@onready var streak_label: Label = $UI/GameOverPanel/StreakLabel
-@onready var unlock_notice_label: Label = $UI/GameOverPanel/UnlockNoticeLabel
-@onready var theme_button: Button = $UI/GameOverPanel/ThemeButton
-@onready var revive_button: Button = $UI/GameOverPanel/ReviveButton
-@onready var unlock_neon_button: Button = $UI/StartPanel/ContentBox/UnlockNeonButton
+@onready var share_button: Button = $UI/ResultsPanel/IconRow/ShareButton
+@onready var streak_label: Label = $UI/ResultsPanel/Middle/StreakLabel
+# oyun sonu — 1. aşama: devam teklifi
+@onready var continue_panel: Control = $UI/ContinuePanel
+@onready var continue_score_label: Label = $UI/ContinuePanel/Box/ContinueScoreLabel
+@onready var countdown_ring: CountdownRing = $UI/ContinuePanel/Box/Countdown
+@onready var countdown_number: Label = $UI/ContinuePanel/Box/Countdown/Number
+@onready var continue_button: Button = $UI/ContinuePanel/Box/ContinueButton
+@onready var no_thanks_button: Button = $UI/ContinuePanel/Box/NoThanksButton
+# oyun sonu — 2. aşama: sonuç
+@onready var results_panel: Control = $UI/ResultsPanel
+@onready var results_top: VBoxContainer = $UI/ResultsPanel/Top
+@onready var results_middle: VBoxContainer = $UI/ResultsPanel/Middle
+@onready var best_badge: PanelContainer = $UI/ResultsPanel/Top/BestBadge
+@onready var unlock_card: PanelContainer = $UI/ResultsPanel/Middle/UnlockCard
+@onready var unlock_label: Label = $UI/ResultsPanel/Middle/UnlockCard/Row/UnlockLabel
+@onready var unlock_swatch: Control = $UI/ResultsPanel/Middle/UnlockCard/Row/UnlockSwatch
+@onready var retry_label: Label = $UI/ResultsPanel/RetryLabel
+@onready var icon_row: HBoxContainer = $UI/ResultsPanel/IconRow
+@onready var home_button: Button = $UI/ResultsPanel/IconRow/HomeButton
+@onready var results_themes_button: Button = $UI/ResultsPanel/IconRow/ThemesButton
+@onready var unlock_neon_button: Button = $UI/ThemesPanel/Box/UnlockNeonButton
 @onready var start_panel: Control = $UI/StartPanel
-@onready var best_score_label: Label = $UI/StartPanel/ContentBox/BestScoreLabel
-@onready var streak_display_label: Label = $UI/StartPanel/ContentBox/StreakDisplayLabel
-@onready var play_button: Button = $UI/StartPanel/ContentBox/PlayButton
+@onready var header: VBoxContainer = $UI/StartPanel/Header
+@onready var best_score_label: Label = $UI/StartPanel/Header/BestScoreLabel
+@onready var streak_display_label: Label = $UI/StartPanel/Header/StreakDisplayLabel
+@onready var tap_label: Label = $UI/StartPanel/TapLabel
+@onready var themes_button: Button = $UI/StartPanel/ThemesButton
+@onready var menu_rings: MenuRings = $UI/StartPanel/Rings
+@onready var menu_chameleon: ChameleonBody = $UI/MenuChameleon
+@onready var themes_panel: Control = $UI/ThemesPanel
+@onready var themes_done_button: Button = $UI/ThemesPanel/Box/DoneButton
 @onready var theme_swatches: Array[Button] = [
-	$UI/StartPanel/ContentBox/ThemeRow/ThemeBox0/ThemeSwatch0,
-	$UI/StartPanel/ContentBox/ThemeRow/ThemeBox1/ThemeSwatch1,
-	$UI/StartPanel/ContentBox/ThemeRow/ThemeBox2/ThemeSwatch2
+	$UI/ThemesPanel/Box/ThemeRow/ThemeBox0/ThemeSwatch0,
+	$UI/ThemesPanel/Box/ThemeRow/ThemeBox1/ThemeSwatch1,
+	$UI/ThemesPanel/Box/ThemeRow/ThemeBox2/ThemeSwatch2
 ]
 
 var game_started = false
@@ -109,6 +131,24 @@ var _idle_t := 0.0
 var _cham_home := Vector2.ZERO
 var _death_flash: ColorRect = null
 
+# --- başlangıç ekranı (menü) ---
+const MENU_CHAM_SCALE := 1.5
+const MENU_COLOR_INTERVAL := 1.2   # menüdeki bukalemunun renk değiştirme aralığı (sn)
+var _menu_center := Vector2.ZERO
+var _menu_t := 0.0
+var _menu_color_t := 0.0
+var _menu_color_index := 0
+var _starting := false             # menüden oyuna geçiş animasyonu sürüyor
+
+# --- oyun sonu ekranı ---
+const CONTINUE_SECONDS := 5.0
+var _go_stage := ""                 # "" | "continue" | "results"
+var _continue_left := 0.0
+var _continue_ad_pending := false   # "Continue"a basıldı, ödüllü reklamın çözülmesi bekleniyor
+var _run_start_best := 0            # bu koşu başlarken kayıtlı en iyi skor ("New best" karşılaştırması)
+var _newly_unlocked := -1
+var _results_gen := 0
+
 func _ready():
 	colors = theme_palettes[GameState.active_theme]
 	var screen_size = get_viewport_rect().size
@@ -120,19 +160,18 @@ func _ready():
 	full_screen_callback.on_ad_failed_to_show_full_screen_content = _on_ad_failed_to_show
 	rewarded_ad_load_callback.on_ad_loaded = _on_rewarded_loaded
 	rewarded_ad_load_callback.on_ad_failed_to_load = _on_rewarded_failed
-	revive_button.pressed.connect(_on_revive_pressed)
+	continue_button.pressed.connect(_on_continue_pressed)
+	no_thanks_button.pressed.connect(_show_results)
+	home_button.pressed.connect(_on_home_pressed)
+	results_themes_button.pressed.connect(_open_themes)
 	unlock_neon_button.pressed.connect(_on_unlock_neon_pressed)
 	_setup_ads()
 
-	theme_button.pressed.connect(_on_theme_button_pressed)
-	theme_button.text = "Theme: " + theme_names[GameState.active_theme]
 	_apply_safe_area()
 
 	dim_overlay.visible = false
-	game_over_panel.visible = false
-	unlock_notice_label.visible = false
-	game_over_panel.modulate.a = 0.0
-	game_over_panel.scale = Vector2(0.7, 0.7)
+	continue_panel.visible = false
+	results_panel.visible = false
 	chameleon.position = Vector2(screen_size.x / 2.0, screen_size.y * 0.75)
 	chameleon_y_position = chameleon.position.y
 	_cham_home = chameleon.position
@@ -146,7 +185,13 @@ func _ready():
 	$UI.add_child(_death_flash)
 	$UI.move_child(_death_flash, dim_overlay.get_index() + 1)
 
-	play_button.pressed.connect(start_game)
+	start_panel.gui_input.connect(_on_start_panel_input)
+	themes_button.pressed.connect(_open_themes)
+	themes_done_button.pressed.connect(_close_themes)
+	themes_panel.gui_input.connect(_on_themes_panel_input)
+	get_viewport().size_changed.connect(_layout_menu)
+	_start_tap_pulse(tap_label)
+	_start_tap_pulse(retry_label)
 
 	sound_button.pressed.connect(_on_sound_toggled)
 	vibe_button.pressed.connect(_on_vibe_toggled)
@@ -159,7 +204,7 @@ func _ready():
 		music_player.stream.loop = true
 	_apply_music()
 
-	setup_start_panel()
+	_show_menu()
 
 func spawn_gate(y_pos: float):
 	var gate = ColorRect.new()
@@ -189,6 +234,8 @@ func spawn_gate(y_pos: float):
 	
 func _process(delta):
 	_update_juice(delta)
+	_update_menu(delta)
+	_update_continue(delta)
 	if _rewarded_active:
 		_try_resolve_rewarded()   # dismiss sonrası ödül bekleme süresini kontrol et
 	if not game_started or game_over:
@@ -263,6 +310,8 @@ func _play_death_juice() -> void:
 	ct.tween_property(chameleon, "scale", Vector2(0.1, 0.1), 0.35) \
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	ct.tween_property(chameleon, "rotation", chameleon.rotation + 1.3, 0.35)
+	# küçülen bukalemun ekranın ortasında leke gibi kalmasın
+	ct.chain().tween_callback(func(): if game_over: chameleon.visible = false)
 
 func check_gate_collision(gate: ColorRect):
 	if Time.get_ticks_msec() < _revive_grace_until:
@@ -348,50 +397,154 @@ func end_game():
 	pause_button.visible = false
 	_play_death_juice()
 
-	var newly_unlocked = -1
+	# revive sonrası ikinci ölümde de gösterilebilsin diye koşu boyunca birikir
 	if score >= 15 and 1 not in GameState.unlocked_themes:
 		if GameState.unlock_theme(1):
-			newly_unlocked = 1
+			_newly_unlocked = 1
 	if GameState.daily_streak >= 3 and 2 not in GameState.unlocked_themes:
 		if GameState.unlock_theme(2):
-			newly_unlocked = 2
-
-	if newly_unlocked >= 0:
-		unlock_notice_label.text = "New theme unlocked: " + theme_names[newly_unlocked] + "!"
-		unlock_notice_label.visible = true
-	else:
-		unlock_notice_label.visible = false
-
-	streak_label.text = "🔥 " + str(GameState.daily_streak) + " day streak"
-
-	# "reklam izle, devam et" — koşu başına bir kez, reklam hazırsa
-	revive_button.visible = rewarded_ready() and not _used_revive_this_run
+			_newly_unlocked = 2
 
 	if score > GameState.high_score:
 		GameState.high_score = score
 		GameState.save_data()
 
-	final_score_label.text = str(score)
-	high_score_label.text = "Best: " + str(GameState.high_score)
-
-	dim_overlay.visible = true
-	dim_overlay.modulate.a = 0.0
-	var dim_tween = create_tween()
-	dim_tween.tween_property(dim_overlay, "modulate:a", 1.0, 0.25)
-
-	game_over_panel.visible = true
-	game_over_panel.pivot_offset = game_over_panel.size / 2
-	var panel_tween = create_tween()
-	panel_tween.set_parallel(true)
-	panel_tween.tween_property(game_over_panel, "modulate:a", 1.0, 0.3)
-	panel_tween.tween_property(game_over_panel, "scale", Vector2(1.0, 1.0), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	
 	GameState.game_over_count += 1
 	GameState.games_since_ad += 1
 	GameState.save_data()
 
-	await get_tree().create_timer(0.4).timeout
-	can_restart = true
+	dim_overlay.visible = true
+	dim_overlay.modulate.a = 0.0
+	create_tween().tween_property(dim_overlay, "modulate:a", 1.0, 0.25)
+
+	# 1. aşama: "reklam izle, devam et" — koşu başına bir kez, reklam hazırsa.
+	# Yoksa doğrudan sonuç ekranı.
+	if rewarded_ready() and not _used_revive_this_run:
+		_show_continue()
+	else:
+		_show_results()
+
+# ------------------------------------------------------------------ oyun sonu ekranı
+
+func _show_continue() -> void:
+	_go_stage = "continue"
+	can_restart = false
+	_continue_left = CONTINUE_SECONDS
+	_continue_ad_pending = false
+	continue_score_label.text = str(score)
+	continue_button.disabled = false
+	countdown_ring.progress = 1.0
+	countdown_number.text = str(int(CONTINUE_SECONDS))
+	results_panel.visible = false
+	continue_panel.visible = true
+	continue_panel.modulate.a = 0.0
+	# ölüm animasyonu okunabilsin diye kısa bir gecikmeyle belirir
+	create_tween().tween_property(continue_panel, "modulate:a", 1.0, 0.2).set_delay(0.2)
+
+# Geri sayım; "Continue"a basıldıysa reklamın çözülmesini bekler. Reklam ödülsüz
+# kapandıysa ya da hiç açılamadıysa (_rewarded_active düşer ama oyun hâlâ bitik)
+# sonuç ekranına geçer. Ödül verildiyse _revive() zaten aşamayı temizlemiştir.
+func _update_continue(delta: float) -> void:
+	if _go_stage != "continue":
+		return
+	if _continue_ad_pending:
+		if not _rewarded_active:
+			_continue_ad_pending = false
+			if game_over:
+				_show_results()
+		return
+	_continue_left -= delta
+	countdown_ring.progress = maxf(0.0, _continue_left / CONTINUE_SECONDS)
+	countdown_number.text = str(maxi(1, ceili(_continue_left)))
+	if _continue_left <= 0.0:
+		_show_results()
+
+func _on_continue_pressed() -> void:
+	if not game_over or _used_revive_this_run or _go_stage != "continue" or _continue_ad_pending:
+		return
+	_continue_ad_pending = true
+	continue_button.disabled = true
+	_show_rewarded("revive")
+
+func _show_results() -> void:
+	if not game_over or _go_stage == "results":
+		return
+	_go_stage = "results"
+	can_restart = false
+	continue_panel.visible = false
+
+	var is_new_best: bool = score > _run_start_best and score > 0
+	var gap: int = _run_start_best - score
+	best_badge.visible = is_new_best
+	high_score_label.visible = not is_new_best and GameState.high_score > 0
+	if gap == 0:
+		high_score_label.text = "Tied your best!"
+	elif gap > 0 and gap <= 5:
+		high_score_label.text = "%d away from your best" % gap
+	else:
+		high_score_label.text = "Best: " + str(GameState.high_score)
+
+	unlock_card.visible = _newly_unlocked >= 0
+	if _newly_unlocked >= 0:
+		unlock_label.text = theme_names[_newly_unlocked] + " unlocked!"
+		_fill_mini_swatch(unlock_swatch, theme_palettes[_newly_unlocked])
+	streak_label.text = "🔥 " + str(GameState.daily_streak) + " day streak"
+	streak_label.visible = GameState.daily_streak >= 2
+
+	results_panel.visible = true
+	results_panel.modulate.a = 0.0
+	create_tween().tween_property(results_panel, "modulate:a", 1.0, 0.25)
+
+	# skor sayarak yükselir; yeni rekorsa rozet sonra zıplayarak gelir
+	final_score_label.text = "0"
+	if score > 0:
+		create_tween().tween_method(
+			func(v: float): final_score_label.text = str(int(round(v))),
+			0.0, float(score), clampf(0.25 + score * 0.02, 0.35, 0.8)
+		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	if is_new_best:
+		best_badge.scale = Vector2.ZERO
+		var bt := create_tween()
+		bt.tween_interval(0.55)
+		bt.tween_callback(func():
+			best_badge.pivot_offset = best_badge.size / 2.0
+			_vibrate(30))
+		bt.tween_property(best_badge, "scale", Vector2.ONE, 0.35) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+	# yanlışlıkla anında yeniden başlamayı önle
+	_results_gen += 1
+	var gen := _results_gen
+	await get_tree().create_timer(0.45).timeout
+	if gen == _results_gen and _go_stage == "results":
+		can_restart = true
+
+func _fill_mini_swatch(holder: Control, palette: Array) -> void:
+	if holder.get_child_count() == 0:
+		for i in 4:
+			var cell := ColorRect.new()
+			cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			cell.anchor_left = (i % 2) * 0.5
+			cell.anchor_top = int(i / 2) * 0.5
+			cell.anchor_right = cell.anchor_left + 0.5
+			cell.anchor_bottom = cell.anchor_top + 0.5
+			holder.add_child(cell)
+	for i in 4:
+		(holder.get_child(i) as ColorRect).color = palette[i]
+
+func _hide_game_over_ui() -> void:
+	_go_stage = ""
+	_continue_ad_pending = false
+	_results_gen += 1
+	dim_overlay.visible = false
+	continue_panel.visible = false
+	results_panel.visible = false
+	themes_panel.visible = false
+
+func _on_home_pressed() -> void:
+	if waiting_for_ad or _rewarded_active:
+		return
+	_return_to_menu()
 
 # --- Reklam kurulumu: önce UMP consent, sonra MobileAds.initialize() ---
 
@@ -529,12 +682,15 @@ func _apply_safe_area() -> void:
 		return
 	var scale_y: float = get_viewport_rect().size.y / float(win.y)
 	var top_inset: float = float(safe.position.y) * scale_y
-	if top_inset <= 0.0:
-		return
-	score_label.offset_top += top_inset
-	score_label.offset_bottom += top_inset
-	pause_button.offset_top += top_inset
-	pause_button.offset_bottom += top_inset
+	var bottom_inset: float = maxf(0.0, float(win.y - safe.end.y) * scale_y)
+	if top_inset > 0.0:
+		for c: Control in [score_label, pause_button, header, settings_row, results_top, results_middle]:
+			c.offset_top += top_inset
+			c.offset_bottom += top_inset
+	if bottom_inset > 0.0:
+		for c: Control in [tap_label, themes_button, retry_label, icon_row]:
+			c.offset_top -= bottom_inset
+			c.offset_bottom -= bottom_inset
 
 func _get_rewarded_unit_id() -> String:
 	if OS.get_name() == "Android":
@@ -673,19 +829,10 @@ func _on_unlock_neon_pressed() -> void:
 		return
 	_show_rewarded("unlock_neon")
 
-func _on_revive_pressed() -> void:
-	if not game_over or _used_revive_this_run:
-		return
-	revive_button.visible = false
-	_show_rewarded("revive")
-
 func _revive() -> void:
 	_used_revive_this_run = true
 	_vibrate(15)
 	_reset_field(true)
-	# game-over panelini bir sonraki sefer için animasyon-öncesi hâline al
-	game_over_panel.modulate.a = 0.0
-	game_over_panel.scale = Vector2(0.7, 0.7)
 	can_restart = true
 	_revive_grace_until = Time.get_ticks_msec() + 1800   # ~1.8 sn dokunulmazlık
 	# "geri döndün" geri bildirimi
@@ -706,19 +853,6 @@ func _on_share_pressed():
 		"I scored " + str(score) + " in Chameleon Dash! Can you beat me?"
 	)
 	
-func _on_theme_button_pressed():
-	var next_index = GameState.active_theme
-	for i in range(1, theme_palettes.size() + 1):
-		var candidate = (GameState.active_theme + i) % theme_palettes.size()
-		if candidate in GameState.unlocked_themes:
-			next_index = candidate
-			break
-	GameState.active_theme = next_index
-	GameState.save_data()
-	colors = theme_palettes[next_index]
-	update_chameleon_color(colors[current_color_index], false)
-	theme_button.text = "Theme: " + theme_names[next_index]
-
 func get_next_spacing() -> float:
 	gate_spawn_count += 1
 	if gate_spawn_count % big_breath_interval == 0:
@@ -731,21 +865,27 @@ func setup_start_panel():
 	check_retroactive_unlocks()
 	best_score_label.text = "Best: " + str(GameState.high_score)
 	streak_display_label.text = "🔥 " + str(GameState.daily_streak) + " day streak"
+	# yeni oyuncuya "Best: 0" / "1 day streak" gibi boş bilgileri gösterme
+	best_score_label.visible = GameState.high_score > 0
+	streak_display_label.visible = GameState.daily_streak >= 2
+	# temalar ilk oyundan sonra (ya da ikinci tema açıldıysa) görünür
+	themes_button.visible = GameState.game_over_count > 0 or GameState.unlocked_themes.size() > 1
 
 	var theme_label_paths = [
-		"ContentBox/ThemeRow/ThemeBox0/ThemeLabel0",
-		"ContentBox/ThemeRow/ThemeBox1/ThemeLabel1",
-		"ContentBox/ThemeRow/ThemeBox2/ThemeLabel2"
+		"Box/ThemeRow/ThemeBox0/ThemeLabel0",
+		"Box/ThemeRow/ThemeBox1/ThemeLabel1",
+		"Box/ThemeRow/ThemeBox2/ThemeLabel2"
 	]
 	for i in range(theme_swatches.size()):
 		var swatch = theme_swatches[i]
 		if not _swatches_connected:
 			swatch.pressed.connect(_on_swatch_pressed.bind(i))
 		update_swatch_visual(swatch, i)
-		var label = start_panel.get_node(theme_label_paths[i])
+		var label = themes_panel.get_node(theme_label_paths[i])
 		label.text = theme_names[i]
 	_swatches_connected = true
 	_refresh_unlock_neon_button()
+	_refresh_menu_hero()
 
 func update_swatch_visual(swatch: Button, index: int):
 	var is_unlocked = index in GameState.unlocked_themes
@@ -852,12 +992,18 @@ func _on_swatch_pressed(index: int):
 	colors = theme_palettes[index]
 	for i in range(theme_swatches.size()):
 		update_swatch_visual(theme_swatches[i], i)
+	_refresh_menu_hero()
+	update_chameleon_color(colors[current_color_index], false)
 
 func start_game():
 	game_started = true
 	_used_revive_this_run = false
+	_run_start_best = GameState.high_score
+	_newly_unlocked = -1
 	start_panel.visible = false
 	pause_button.visible = true
+	score_label.text = str(score)
+	score_label.visible = true
 	_apply_music()
 
 	while not is_instance_valid(last_spawned_gate) or last_spawned_gate.position.y > -2600.0:
@@ -866,6 +1012,8 @@ func start_game():
 
 func restart_run():
 	_used_revive_this_run = false
+	_run_start_best = GameState.high_score
+	_newly_unlocked = -1
 	_reset_field(false)
 
 # keep_progress = true -> revive (skor/hız/renk korunur); false -> tam yeniden başlat
@@ -890,6 +1038,7 @@ func _reset_field(keep_progress: bool) -> void:
 	chameleon.scale = Vector2.ONE
 	chameleon.rotation = 0.0
 	chameleon.modulate.a = 1.0
+	chameleon.visible = true
 	_cham_home = chameleon.position
 	_shake = 0.0
 	_idle_t = 0.0
@@ -903,8 +1052,7 @@ func _reset_field(keep_progress: bool) -> void:
 	score_label.scale = Vector2.ONE
 	score_label.modulate = Color(1, 1, 1, 1)
 	score_label.visible = true
-	dim_overlay.visible = false
-	game_over_panel.visible = false
+	_hide_game_over_ui()
 	pause_button.visible = true
 
 	while not is_instance_valid(last_spawned_gate) or last_spawned_gate.position.y > -2600.0:
@@ -916,6 +1064,124 @@ func check_retroactive_unlocks():
 		GameState.unlock_theme(1)
 	if GameState.daily_streak >= 3 and 2 not in GameState.unlocked_themes:
 		GameState.unlock_theme(2)
+
+# ------------------------------------------------------------------ başlangıç ekranı
+
+var _menu_skin_tween: Tween
+var _menu_squash_tween: Tween
+
+func _show_menu() -> void:
+	_starting = false
+	_kill_menu_tweens()
+	chameleon.visible = false
+	score_label.visible = false
+	themes_panel.visible = false
+	start_panel.modulate.a = 1.0
+	start_panel.visible = true
+	menu_chameleon.visible = true
+	menu_chameleon.scale = Vector2.ONE * MENU_CHAM_SCALE
+	_menu_color_index = 0
+	_menu_color_t = 0.0
+	_layout_menu()
+	setup_start_panel()
+
+func _layout_menu() -> void:
+	var vs := get_viewport_rect().size
+	_menu_center = Vector2(vs.x / 2.0, vs.y * 0.47)
+	menu_rings.position = _menu_center
+	if not _starting:
+		menu_chameleon.position = _menu_center
+
+func _refresh_menu_hero() -> void:
+	menu_rings.set_colors(colors)
+	_menu_color_index = _menu_color_index % colors.size()
+	_set_menu_color(_menu_color_index, false)
+
+func _update_menu(delta: float) -> void:
+	if not start_panel.visible or _starting:
+		return
+	_menu_t += delta
+	menu_chameleon.position = _menu_center + Vector2(0.0, sin(_menu_t * 2.4) * 6.0)
+	_menu_color_t += delta
+	if _menu_color_t >= MENU_COLOR_INTERVAL:
+		_menu_color_t = 0.0
+		_menu_color_index = (_menu_color_index + 1) % colors.size()
+		_set_menu_color(_menu_color_index, true)
+
+# Menüdeki bukalemun sırayla temanın renklerine bürünür; aynı renkteki halka öne çıkar.
+func _set_menu_color(index: int, animate: bool) -> void:
+	menu_rings.highlight = index
+	var c: Color = colors[index]
+	if not animate:
+		menu_chameleon.skin = c
+		return
+	_kill_menu_tweens()
+	_menu_skin_tween = create_tween()
+	_menu_skin_tween.tween_property(menu_chameleon, "skin", c, 0.15)
+	menu_chameleon.scale = Vector2(1.12, 0.88) * MENU_CHAM_SCALE
+	_menu_squash_tween = create_tween()
+	_menu_squash_tween.tween_property(menu_chameleon, "scale", Vector2.ONE * MENU_CHAM_SCALE, 0.22) \
+		.set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+
+func _kill_menu_tweens() -> void:
+	for t in [_menu_skin_tween, _menu_squash_tween]:
+		if t and t.is_valid():
+			t.kill()
+
+func _start_tap_pulse(lbl: Label) -> void:
+	var t := create_tween().set_loops()
+	t.tween_property(lbl, "modulate:a", 0.45, 0.75).set_trans(Tween.TRANS_SINE)
+	t.tween_property(lbl, "modulate:a", 1.0, 0.75).set_trans(Tween.TRANS_SINE)
+
+func _is_tap(event: InputEvent) -> bool:
+	if event is InputEventScreenTouch:
+		return event.pressed
+	if event is InputEventMouseButton:
+		return event.pressed and event.button_index == MOUSE_BUTTON_LEFT
+	return false
+
+# Ekranın boş herhangi bir yerine dokunmak oyunu başlatır (ayar/tema butonları kendi
+# dokunuşlarını yutar, buraya ulaşmaz).
+func _on_start_panel_input(event: InputEvent) -> void:
+	if _is_tap(event):
+		start_panel.accept_event()
+		_begin_start()
+
+# Menü bukalemunu, oyundaki bukalemunun yerine küçülerek iner; menü aynı anda solar.
+func _begin_start() -> void:
+	if _starting or game_started or waiting_for_ad or _rewarded_active:
+		return
+	_starting = true
+	_kill_menu_tweens()
+	var tw := create_tween().set_parallel(true)
+	tw.tween_property(start_panel, "modulate:a", 0.0, 0.25)
+	tw.tween_property(menu_chameleon, "position", _cham_home, 0.38) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(menu_chameleon, "scale", Vector2.ONE, 0.38) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(menu_chameleon, "skin", colors[current_color_index], 0.2)
+	tw.chain().tween_callback(_finish_start)
+
+func _finish_start() -> void:
+	menu_chameleon.visible = false
+	chameleon.visible = true
+	_starting = false
+	start_game()
+	start_panel.modulate.a = 1.0
+
+func _open_themes() -> void:
+	setup_start_panel()
+	themes_panel.modulate.a = 0.0
+	themes_panel.visible = true
+	create_tween().tween_property(themes_panel, "modulate:a", 1.0, 0.18)
+
+func _close_themes() -> void:
+	themes_panel.visible = false
+
+func _on_themes_panel_input(event: InputEvent) -> void:
+	if _is_tap(event):
+		themes_panel.accept_event()
+		_close_themes()
 
 # ------------------------------------------------------------------ ayarlar
 
@@ -1007,8 +1273,6 @@ func _return_to_menu() -> void:
 	score_label.scale = Vector2.ONE
 	score_label.modulate = Color(1, 1, 1, 1)
 	score_label.visible = true
-	dim_overlay.visible = false
-	game_over_panel.visible = false
+	_hide_game_over_ui()
 	pause_button.visible = false
-	start_panel.visible = true
-	setup_start_panel()
+	_show_menu()

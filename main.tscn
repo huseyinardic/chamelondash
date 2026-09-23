@@ -10,55 +10,244 @@
 [ext_resource type="Script" uid="uid://w77upulum5ge" path="res://addons/SharePlugin/Share.gd" id="6_share"]
 [ext_resource type="Script" uid="uid://clsfk8fwup768" path="res://icon_button.gd" id="7_iconbtn"]
 [ext_resource type="Script" uid="uid://bd6p6r85reewr" path="res://chameleon.gd" id="8_cham"]
+[ext_resource type="Script" uid="uid://bc4n5aw4u1oux" path="res://menu_rings.gd" id="9_rings"]
 [ext_resource type="AudioStream" uid="uid://ctdkpjckb514l" path="res://sounds/Passing-Action.ogg" id="10_efxa6"]
+[ext_resource type="Script" uid="uid://bgk5h2u3ueekw" path="res://countdown_ring.gd" id="11_ring"]
+
+[sub_resource type="StyleBoxFlat" id="sb_pill"]
+content_margin_left = 28.0
+content_margin_top = 10.0
+content_margin_right = 28.0
+content_margin_bottom = 10.0
+bg_color = Color(0, 0, 0, 0.28)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.22)
+corner_radius_top_left = 32
+corner_radius_top_right = 32
+corner_radius_bottom_right = 32
+corner_radius_bottom_left = 32
+
+[sub_resource type="StyleBoxFlat" id="sb_pill_hi"]
+content_margin_left = 28.0
+content_margin_top = 10.0
+content_margin_right = 28.0
+content_margin_bottom = 10.0
+bg_color = Color(1, 1, 1, 0.1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.3)
+corner_radius_top_left = 32
+corner_radius_top_right = 32
+corner_radius_bottom_right = 32
+corner_radius_bottom_left = 32
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ycdy4"]
+bg_color = Color(0, 0, 0, 0.28)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.22)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_w48qg"]
+bg_color = Color(1, 1, 1, 0.1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.22)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_vivmo"]
+bg_color = Color(0, 0, 0, 0.28)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.22)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2cqfq"]
+bg_color = Color(1, 1, 1, 0.1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.22)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_yaehf"]
+bg_color = Color(0, 0, 0, 0.28)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.22)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_074og"]
+bg_color = Color(1, 1, 1, 0.1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.22)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[sub_resource type="StyleBoxFlat" id="sb_go"]
+content_margin_left = 30.0
+content_margin_top = 10.0
+content_margin_right = 30.0
+content_margin_bottom = 10.0
+bg_color = Color(0.3, 0.78, 0.43, 1)
+border_width_bottom = 6
+border_color = Color(0.18, 0.56, 0.29, 1)
+corner_radius_top_left = 44
+corner_radius_top_right = 44
+corner_radius_bottom_right = 44
+corner_radius_bottom_left = 44
+
+[sub_resource type="StyleBoxFlat" id="sb_go_down"]
+content_margin_left = 30.0
+content_margin_top = 14.0
+content_margin_right = 30.0
+content_margin_bottom = 6.0
+bg_color = Color(0.25, 0.68, 0.37, 1)
+border_width_top = 2
+border_color = Color(0.18, 0.56, 0.29, 1)
+corner_radius_top_left = 44
+corner_radius_top_right = 44
+corner_radius_bottom_right = 44
+corner_radius_bottom_left = 44
+
+[sub_resource type="StyleBoxFlat" id="sb_badge"]
+content_margin_left = 22.0
+content_margin_top = 4.0
+content_margin_right = 22.0
+content_margin_bottom = 4.0
+bg_color = Color(0.949, 0.788, 0.298, 1)
+corner_radius_top_left = 24
+corner_radius_top_right = 24
+corner_radius_bottom_right = 24
+corner_radius_bottom_left = 24
+
+[sub_resource type="StyleBoxFlat" id="sb_card"]
+content_margin_left = 16.0
+content_margin_top = 10.0
+content_margin_right = 20.0
+content_margin_bottom = 10.0
+bg_color = Color(0, 0, 0, 0.28)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.22)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cegan"]
+bg_color = Color(0, 0, 0, 0.28)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.22)
+corner_radius_top_left = 32
+corner_radius_top_right = 32
+corner_radius_bottom_right = 32
+corner_radius_bottom_left = 32
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_82xsv"]
+bg_color = Color(1, 1, 1, 0.1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.22)
+corner_radius_top_left = 32
+corner_radius_top_right = 32
+corner_radius_bottom_right = 32
+corner_radius_bottom_left = 32
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_getpj"]
+bg_color = Color(0, 0, 0, 0.28)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.22)
+corner_radius_top_left = 32
+corner_radius_top_right = 32
+corner_radius_bottom_right = 32
+corner_radius_bottom_left = 32
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ryguw"]
+bg_color = Color(1, 1, 1, 0.1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.22)
+corner_radius_top_left = 32
+corner_radius_top_right = 32
+corner_radius_bottom_right = 32
+corner_radius_bottom_left = 32
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_d13ii"]
+bg_color = Color(0, 0, 0, 0.28)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.22)
+corner_radius_top_left = 32
+corner_radius_top_right = 32
+corner_radius_bottom_right = 32
+corner_radius_bottom_left = 32
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1u8w0"]
+bg_color = Color(1, 1, 1, 0.1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.22)
+corner_radius_top_left = 32
+corner_radius_top_right = 32
+corner_radius_bottom_right = 32
+corner_radius_bottom_left = 32
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_lquwl"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_7mycd"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_272bh"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_efxa6"]
-bg_color = Color(0.13, 0.15, 0.14, 1)
-corner_radius_top_left = 13
-corner_radius_top_right = 13
-corner_radius_bottom_right = 13
-corner_radius_bottom_left = 13
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dg77c"]
-bg_color = Color(0.19, 0.22, 0.21, 1)
-corner_radius_top_left = 13
-corner_radius_top_right = 13
-corner_radius_bottom_right = 13
-corner_radius_bottom_left = 13
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ycdy4"]
-bg_color = Color(0.13, 0.15, 0.14, 1)
-corner_radius_top_left = 13
-corner_radius_top_right = 13
-corner_radius_bottom_right = 13
-corner_radius_bottom_left = 13
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_w48qg"]
-bg_color = Color(0.19, 0.22, 0.21, 1)
-corner_radius_top_left = 13
-corner_radius_top_right = 13
-corner_radius_bottom_right = 13
-corner_radius_bottom_left = 13
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_vivmo"]
-bg_color = Color(0.13, 0.15, 0.14, 1)
-corner_radius_top_left = 13
-corner_radius_top_right = 13
-corner_radius_bottom_right = 13
-corner_radius_bottom_left = 13
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2cqfq"]
-bg_color = Color(0.19, 0.22, 0.21, 1)
-corner_radius_top_left = 13
-corner_radius_top_right = 13
-corner_radius_bottom_right = 13
-corner_radius_bottom_left = 13
 
 [sub_resource type="StyleBoxFlat" id="sb_pause"]
 bg_color = Color(0.09, 0.1, 0.12, 0.63)
@@ -131,113 +320,105 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.24780053, 0.3491902, 0.3133042, 0.85)
+mouse_filter = 1
+color = Color(0.04, 0.12, 0.08, 0.6)
 
-[node name="ContentBox" type="VBoxContainer" parent="UI/StartPanel" unique_id=736357843]
+[node name="Rings" type="Node2D" parent="UI/StartPanel" unique_id=1700000001]
+script = ExtResource("9_rings")
+
+[node name="Header" type="VBoxContainer" parent="UI/StartPanel" unique_id=1700000002]
 layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -101.5
-offset_top = -73.5
-offset_right = 101.5
-offset_bottom = 73.5
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 150.0
+offset_bottom = 310.0
 grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/separation = 20
+mouse_filter = 2
+theme_override_constants/separation = 6
 
-[node name="TitleLabel" type="Label" parent="UI/StartPanel/ContentBox" unique_id=1004960902]
+[node name="TitleLabel" type="Label" parent="UI/StartPanel/Header" unique_id=1004960902]
 layout_mode = 2
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.35)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 4
 theme_override_fonts/font = ExtResource("3_1bvp3")
-theme_override_font_sizes/font_size = 52
+theme_override_font_sizes/font_size = 62
 text = "Chameleon Dash"
+horizontal_alignment = 1
 
-[node name="BestScoreLabel" type="Label" parent="UI/StartPanel/ContentBox" unique_id=1987447280]
+[node name="BestScoreLabel" type="Label" parent="UI/StartPanel/Header" unique_id=1987447280]
 layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.75)
 theme_override_fonts/font = ExtResource("2_h2yge")
-theme_override_font_sizes/font_size = 32
+theme_override_font_sizes/font_size = 28
 text = "Best: X"
+horizontal_alignment = 1
 
-[node name="StreakDisplayLabel" type="Label" parent="UI/StartPanel/ContentBox" unique_id=1624453550]
+[node name="StreakDisplayLabel" type="Label" parent="UI/StartPanel/Header" unique_id=1624453550]
 layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.6)
 theme_override_fonts/font = ExtResource("2_h2yge")
-theme_override_font_sizes/font_size = 32
+theme_override_font_sizes/font_size = 24
 text = "🔥 X day streak"
+horizontal_alignment = 1
 
-[node name="ThemeRow" type="HBoxContainer" parent="UI/StartPanel/ContentBox" unique_id=322981723]
-layout_mode = 2
-theme_override_constants/separation = 20
+[node name="TapLabel" type="Label" parent="UI/StartPanel" unique_id=1700000003]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -320.0
+offset_bottom = -250.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.3)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 3
+theme_override_fonts/font = ExtResource("3_1bvp3")
+theme_override_font_sizes/font_size = 46
+text = "Tap to play"
+horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="ThemeBox0" type="VBoxContainer" parent="UI/StartPanel/ContentBox/ThemeRow" unique_id=1204814715]
-layout_mode = 2
-
-[node name="ThemeSwatch0" type="Button" parent="UI/StartPanel/ContentBox/ThemeRow/ThemeBox0" unique_id=1616454436]
-custom_minimum_size = Vector2(70, 70)
-layout_mode = 2
-theme_override_styles/normal = SubResource("StyleBoxFlat_lquwl")
-text = "Classic"
-
-[node name="ThemeLabel0" type="Label" parent="UI/StartPanel/ContentBox/ThemeRow/ThemeBox0" unique_id=1097688672]
-layout_mode = 2
-theme_override_fonts/font = ExtResource("2_h2yge")
-theme_override_font_sizes/font_size = 22
-text = "Classic"
-
-[node name="ThemeBox1" type="VBoxContainer" parent="UI/StartPanel/ContentBox/ThemeRow" unique_id=1577012649]
-layout_mode = 2
-
-[node name="ThemeSwatch1" type="Button" parent="UI/StartPanel/ContentBox/ThemeRow/ThemeBox1" unique_id=1322535844]
-custom_minimum_size = Vector2(70, 70)
-layout_mode = 2
-theme_override_styles/normal = SubResource("StyleBoxFlat_7mycd")
-text = "Sunset"
-
-[node name="ThemeLabel1" type="Label" parent="UI/StartPanel/ContentBox/ThemeRow/ThemeBox1" unique_id=1274292684]
-layout_mode = 2
-theme_override_fonts/font = ExtResource("2_h2yge")
-theme_override_font_sizes/font_size = 22
-text = "Sunset"
-
-[node name="ThemeBox2" type="VBoxContainer" parent="UI/StartPanel/ContentBox/ThemeRow" unique_id=595074048]
-layout_mode = 2
-
-[node name="ThemeSwatch2" type="Button" parent="UI/StartPanel/ContentBox/ThemeRow/ThemeBox2" unique_id=1213027161]
-custom_minimum_size = Vector2(70, 70)
-layout_mode = 2
-theme_override_styles/normal = SubResource("StyleBoxFlat_272bh")
-text = "Neon"
-
-[node name="ThemeLabel2" type="Label" parent="UI/StartPanel/ContentBox/ThemeRow/ThemeBox2" unique_id=1366134326]
-layout_mode = 2
-theme_override_fonts/font = ExtResource("2_h2yge")
-theme_override_font_sizes/font_size = 22
-text = "Neon"
-
-[node name="UnlockNeonButton" type="Button" parent="UI/StartPanel/ContentBox" unique_id=356742289]
+[node name="ThemesButton" type="Button" parent="UI/StartPanel" unique_id=1700000004]
 visible = false
-layout_mode = 2
-theme_override_fonts/font = ExtResource("2_h2yge")
-theme_override_font_sizes/font_size = 22
-text = "▶ Watch ad: unlock Neon"
-
-[node name="SettingsRow" type="HBoxContainer" parent="UI/StartPanel/ContentBox" unique_id=377446604]
-layout_mode = 2
-theme_override_constants/separation = 14
-alignment = 1
-
-[node name="SoundButton" type="Button" parent="UI/StartPanel/ContentBox/SettingsRow" unique_id=1114096703]
-custom_minimum_size = Vector2(56, 48)
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -100.0
+offset_top = -200.0
+offset_right = 100.0
+offset_bottom = -136.0
+grow_horizontal = 2
+grow_vertical = 0
 focus_mode = 0
-theme_override_styles/normal = SubResource("StyleBoxFlat_efxa6")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_dg77c")
-theme_override_styles/hover = SubResource("StyleBoxFlat_dg77c")
-theme_override_styles/focus = SubResource("StyleBoxFlat_efxa6")
-script = ExtResource("7_iconbtn")
+theme_override_fonts/font = ExtResource("2_h2yge")
+theme_override_font_sizes/font_size = 28
+theme_override_styles/normal = SubResource("sb_pill")
+theme_override_styles/pressed = SubResource("sb_pill_hi")
+theme_override_styles/hover = SubResource("sb_pill_hi")
+theme_override_styles/focus = SubResource("sb_pill")
+text = "Themes"
 
-[node name="VibeButton" type="Button" parent="UI/StartPanel/ContentBox/SettingsRow" unique_id=1839592012]
+[node name="SettingsRow" type="HBoxContainer" parent="UI/StartPanel" unique_id=377446604]
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -210.0
+offset_top = 24.0
+offset_right = -22.0
+offset_bottom = 72.0
+grow_horizontal = 0
+mouse_filter = 0
+theme_override_constants/separation = 10
+alignment = 2
+
+[node name="SoundButton" type="Button" parent="UI/StartPanel/SettingsRow" unique_id=1114096703]
 custom_minimum_size = Vector2(56, 48)
 layout_mode = 2
 focus_mode = 0
@@ -246,9 +427,8 @@ theme_override_styles/pressed = SubResource("StyleBoxFlat_w48qg")
 theme_override_styles/hover = SubResource("StyleBoxFlat_w48qg")
 theme_override_styles/focus = SubResource("StyleBoxFlat_ycdy4")
 script = ExtResource("7_iconbtn")
-kind = 1
 
-[node name="MusicButton" type="Button" parent="UI/StartPanel/ContentBox/SettingsRow" unique_id=118341330]
+[node name="VibeButton" type="Button" parent="UI/StartPanel/SettingsRow" unique_id=1839592012]
 custom_minimum_size = Vector2(56, 48)
 layout_mode = 2
 focus_mode = 0
@@ -257,92 +437,438 @@ theme_override_styles/pressed = SubResource("StyleBoxFlat_2cqfq")
 theme_override_styles/hover = SubResource("StyleBoxFlat_2cqfq")
 theme_override_styles/focus = SubResource("StyleBoxFlat_vivmo")
 script = ExtResource("7_iconbtn")
+kind = 1
+
+[node name="MusicButton" type="Button" parent="UI/StartPanel/SettingsRow" unique_id=118341330]
+custom_minimum_size = Vector2(56, 48)
+layout_mode = 2
+focus_mode = 0
+theme_override_styles/normal = SubResource("StyleBoxFlat_yaehf")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_074og")
+theme_override_styles/hover = SubResource("StyleBoxFlat_074og")
+theme_override_styles/focus = SubResource("StyleBoxFlat_yaehf")
+script = ExtResource("7_iconbtn")
 kind = 2
 
-[node name="PlayButton" type="Button" parent="UI/StartPanel/ContentBox" unique_id=1348150042]
-layout_mode = 2
-text = "Tap to Play"
+[node name="MenuChameleon" type="Node2D" parent="UI" unique_id=1700000005]
+script = ExtResource("8_cham")
 
 [node name="DimOverlay" type="ColorRect" parent="UI" unique_id=1160738864]
+visible = false
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0, 0, 0, 0.5882353)
+color = Color(0.03, 0.09, 0.06, 0.82)
 
-[node name="GameOverPanel" type="VBoxContainer" parent="UI" unique_id=1294428112]
+[node name="ContinuePanel" type="Control" parent="UI" unique_id=1700000020]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Box" type="VBoxContainer" parent="UI/ContinuePanel" unique_id=1700000021]
+layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -20.0
-offset_top = -52.0
-offset_right = 20.0
-offset_bottom = 52.0
+offset_left = -240.0
+offset_top = -360.0
+offset_right = 240.0
+offset_bottom = 360.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 14
+alignment = 1
+
+[node name="Caption" type="Label" parent="UI/ContinuePanel/Box" unique_id=1700000022]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.6)
+theme_override_fonts/font = ExtResource("2_h2yge")
+theme_override_font_sizes/font_size = 30
+text = "Score"
+horizontal_alignment = 1
+
+[node name="ContinueScoreLabel" type="Label" parent="UI/ContinuePanel/Box" unique_id=1700000023]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("3_1bvp3")
+theme_override_font_sizes/font_size = 110
+text = "0"
+horizontal_alignment = 1
+
+[node name="Spacer" type="Control" parent="UI/ContinuePanel/Box" unique_id=1700000024]
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Countdown" type="Control" parent="UI/ContinuePanel/Box" unique_id=1700000025]
+custom_minimum_size = Vector2(170, 170)
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+script = ExtResource("11_ring")
+
+[node name="Number" type="Label" parent="UI/ContinuePanel/Box/Countdown" unique_id=1700000026]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_fonts/font = ExtResource("3_1bvp3")
+theme_override_font_sizes/font_size = 64
+text = "5"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Spacer2" type="Control" parent="UI/ContinuePanel/Box" unique_id=1700000027]
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="ContinueButton" type="Button" parent="UI/ContinuePanel/Box" unique_id=1671748199]
+custom_minimum_size = Vector2(320, 88)
+layout_mode = 2
+size_flags_horizontal = 4
+focus_mode = 0
+theme_override_colors/font_color = Color(0.04, 0.2, 0.1, 1)
+theme_override_colors/font_pressed_color = Color(0.04, 0.2, 0.1, 1)
+theme_override_colors/font_hover_color = Color(0.04, 0.2, 0.1, 1)
+theme_override_colors/font_disabled_color = Color(0.04, 0.2, 0.1, 0.6)
+theme_override_fonts/font = ExtResource("3_1bvp3")
+theme_override_font_sizes/font_size = 40
+theme_override_styles/normal = SubResource("sb_go")
+theme_override_styles/pressed = SubResource("sb_go_down")
+theme_override_styles/hover = SubResource("sb_go")
+theme_override_styles/disabled = SubResource("sb_go_down")
+theme_override_styles/focus = SubResource("sb_go")
+text = "▶  Continue"
+
+[node name="AdHint" type="Label" parent="UI/ContinuePanel/Box" unique_id=1700000028]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.5)
+theme_override_fonts/font = ExtResource("2_h2yge")
+theme_override_font_sizes/font_size = 22
+text = "Watch a short ad"
+horizontal_alignment = 1
+
+[node name="NoThanksButton" type="Button" parent="UI/ContinuePanel/Box" unique_id=1700000029]
+custom_minimum_size = Vector2(220, 64)
+layout_mode = 2
+size_flags_horizontal = 4
+focus_mode = 0
+theme_override_colors/font_color = Color(1, 1, 1, 0.6)
+theme_override_colors/font_pressed_color = Color(1, 1, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 0.85)
+theme_override_fonts/font = ExtResource("2_h2yge")
+theme_override_font_sizes/font_size = 28
+text = "No thanks"
+flat = true
+
+[node name="ResultsPanel" type="Control" parent="UI" unique_id=1294428112]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="TitleLabel" type="Label" parent="UI/GameOverPanel" unique_id=832613156]
-layout_mode = 2
-theme_override_fonts/font = ExtResource("2_h2yge")
-theme_override_font_sizes/font_size = 36
-text = "Game Over"
+[node name="Top" type="VBoxContainer" parent="UI/ResultsPanel" unique_id=1700000030]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 190.0
+offset_bottom = 560.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
 
-[node name="ScoreCaptionLabel" type="Label" parent="UI/GameOverPanel" unique_id=1827865546]
+[node name="ScoreCaptionLabel" type="Label" parent="UI/ResultsPanel/Top" unique_id=1827865546]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 0.6)
 theme_override_fonts/font = ExtResource("2_h2yge")
-theme_override_font_sizes/font_size = 32
-text = "SCORE"
+theme_override_font_sizes/font_size = 30
+text = "Score"
+horizontal_alignment = 1
 
-[node name="FinalScoreLabel" type="Label" parent="UI/GameOverPanel" unique_id=1020732234]
+[node name="FinalScoreLabel" type="Label" parent="UI/ResultsPanel/Top" unique_id=1020732234]
 layout_mode = 2
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.35)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 5
 theme_override_fonts/font = ExtResource("3_1bvp3")
-theme_override_font_sizes/font_size = 72
+theme_override_font_sizes/font_size = 150
+text = "0"
+horizontal_alignment = 1
 
-[node name="HighScoreLabel" type="Label" parent="UI/GameOverPanel" unique_id=1043574647]
-layout_mode = 2
-theme_override_fonts/font = ExtResource("2_h2yge")
-theme_override_font_sizes/font_size = 36
-text = "Best: X"
-
-[node name="ReviveButton" type="Button" parent="UI/GameOverPanel" unique_id=1671748199]
+[node name="BestBadge" type="PanelContainer" parent="UI/ResultsPanel/Top" unique_id=1700000031]
 visible = false
 layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+theme_override_styles/panel = SubResource("sb_badge")
+
+[node name="BestBadgeLabel" type="Label" parent="UI/ResultsPanel/Top/BestBadge" unique_id=1700000032]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.29, 0.2, 0, 1)
+theme_override_fonts/font = ExtResource("3_1bvp3")
+theme_override_font_sizes/font_size = 30
+text = "New best!"
+horizontal_alignment = 1
+
+[node name="HighScoreLabel" type="Label" parent="UI/ResultsPanel/Top" unique_id=1043574647]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 0.7)
 theme_override_fonts/font = ExtResource("2_h2yge")
 theme_override_font_sizes/font_size = 30
-text = "▶ Watch ad to continue"
+text = "Best: X"
+horizontal_alignment = 1
 
-[node name="StreakLabel" type="Label" parent="UI/GameOverPanel" unique_id=831276297]
+[node name="Middle" type="VBoxContainer" parent="UI/ResultsPanel" unique_id=1700000033]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 600.0
+offset_bottom = 760.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="UnlockCard" type="PanelContainer" parent="UI/ResultsPanel/Middle" unique_id=1836878761]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 4
+mouse_filter = 2
+theme_override_styles/panel = SubResource("sb_card")
+
+[node name="Row" type="HBoxContainer" parent="UI/ResultsPanel/Middle/UnlockCard" unique_id=1700000034]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 14
+
+[node name="UnlockSwatch" type="Control" parent="UI/ResultsPanel/Middle/UnlockCard/Row" unique_id=1700000035]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+
+[node name="UnlockLabel" type="Label" parent="UI/ResultsPanel/Middle/UnlockCard/Row" unique_id=1700000036]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_h2yge")
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 26
+text = "Theme unlocked!"
 
-[node name="UnlockNoticeLabel" type="Label" parent="UI/GameOverPanel" unique_id=1836878761]
+[node name="StreakLabel" type="Label" parent="UI/ResultsPanel/Middle" unique_id=831276297]
+visible = false
 layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.84313726, 0, 1)
+theme_override_colors/font_color = Color(1, 1, 1, 0.65)
 theme_override_fonts/font = ExtResource("2_h2yge")
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 24
+horizontal_alignment = 1
 
-[node name="ThemeButton" type="Button" parent="UI/GameOverPanel" unique_id=397475561]
+[node name="RetryLabel" type="Label" parent="UI/ResultsPanel" unique_id=1781175848]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -320.0
+offset_bottom = -250.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.3)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 3
+theme_override_fonts/font = ExtResource("3_1bvp3")
+theme_override_font_sizes/font_size = 46
+text = "Tap to retry"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="IconRow" type="HBoxContainer" parent="UI/ResultsPanel" unique_id=1700000037]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -122.0
+offset_top = -210.0
+offset_right = 122.0
+offset_bottom = -146.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/separation = 26
+alignment = 1
+
+[node name="HomeButton" type="Button" parent="UI/ResultsPanel/IconRow" unique_id=1700000038]
+custom_minimum_size = Vector2(64, 64)
 layout_mode = 2
-theme_override_font_sizes/font_size = 32
+focus_mode = 0
+theme_override_styles/normal = SubResource("StyleBoxFlat_cegan")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_82xsv")
+theme_override_styles/hover = SubResource("StyleBoxFlat_82xsv")
+theme_override_styles/focus = SubResource("StyleBoxFlat_cegan")
+script = ExtResource("7_iconbtn")
+kind = 3
 
-[node name="RestartHintLabel" type="Label" parent="UI/GameOverPanel" unique_id=1781175848]
+[node name="ThemesButton" type="Button" parent="UI/ResultsPanel/IconRow" unique_id=397475561]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+focus_mode = 0
+theme_override_styles/normal = SubResource("StyleBoxFlat_getpj")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_ryguw")
+theme_override_styles/hover = SubResource("StyleBoxFlat_ryguw")
+theme_override_styles/focus = SubResource("StyleBoxFlat_getpj")
+script = ExtResource("7_iconbtn")
+kind = 4
+
+[node name="ShareButton" type="Button" parent="UI/ResultsPanel/IconRow" unique_id=48748957]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+focus_mode = 0
+theme_override_styles/normal = SubResource("StyleBoxFlat_d13ii")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_1u8w0")
+theme_override_styles/hover = SubResource("StyleBoxFlat_1u8w0")
+theme_override_styles/focus = SubResource("StyleBoxFlat_d13ii")
+script = ExtResource("7_iconbtn")
+kind = 5
+
+[node name="ThemesPanel" type="Control" parent="UI" unique_id=1700000006]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dim" type="ColorRect" parent="UI/ThemesPanel" unique_id=1700000007]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+color = Color(0.03, 0.08, 0.05, 0.88)
+
+[node name="Box" type="VBoxContainer" parent="UI/ThemesPanel" unique_id=1700000008]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -260.0
+offset_top = -240.0
+offset_right = 260.0
+offset_bottom = 240.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+theme_override_constants/separation = 32
+alignment = 1
+
+[node name="ThemesTitle" type="Label" parent="UI/ThemesPanel/Box" unique_id=1700000009]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("3_1bvp3")
+theme_override_font_sizes/font_size = 48
+text = "Themes"
+horizontal_alignment = 1
+
+[node name="ThemeRow" type="HBoxContainer" parent="UI/ThemesPanel/Box" unique_id=322981723]
+layout_mode = 2
+theme_override_constants/separation = 32
+alignment = 1
+
+[node name="ThemeBox0" type="VBoxContainer" parent="UI/ThemesPanel/Box/ThemeRow" unique_id=1204814715]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ThemeSwatch0" type="Button" parent="UI/ThemesPanel/Box/ThemeRow/ThemeBox0" unique_id=1616454436]
+custom_minimum_size = Vector2(104, 104)
+layout_mode = 2
+focus_mode = 0
+theme_override_styles/normal = SubResource("StyleBoxFlat_lquwl")
+
+[node name="ThemeLabel0" type="Label" parent="UI/ThemesPanel/Box/ThemeRow/ThemeBox0" unique_id=1097688672]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_h2yge")
-theme_override_font_sizes/font_size = 36
-text = "Tap to try again"
+theme_override_font_sizes/font_size = 24
+text = "Classic"
+horizontal_alignment = 1
 
-[node name="ShareButton" type="Button" parent="UI/GameOverPanel" unique_id=48748957]
+[node name="ThemeBox1" type="VBoxContainer" parent="UI/ThemesPanel/Box/ThemeRow" unique_id=1577012649]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ThemeSwatch1" type="Button" parent="UI/ThemesPanel/Box/ThemeRow/ThemeBox1" unique_id=1322535844]
+custom_minimum_size = Vector2(104, 104)
+layout_mode = 2
+focus_mode = 0
+theme_override_styles/normal = SubResource("StyleBoxFlat_7mycd")
+
+[node name="ThemeLabel1" type="Label" parent="UI/ThemesPanel/Box/ThemeRow/ThemeBox1" unique_id=1274292684]
 layout_mode = 2
 theme_override_fonts/font = ExtResource("2_h2yge")
-theme_override_font_sizes/font_size = 32
-text = "Share Score"
+theme_override_font_sizes/font_size = 24
+text = "Sunset"
+horizontal_alignment = 1
+
+[node name="ThemeBox2" type="VBoxContainer" parent="UI/ThemesPanel/Box/ThemeRow" unique_id=595074048]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ThemeSwatch2" type="Button" parent="UI/ThemesPanel/Box/ThemeRow/ThemeBox2" unique_id=1213027161]
+custom_minimum_size = Vector2(104, 104)
+layout_mode = 2
+focus_mode = 0
+theme_override_styles/normal = SubResource("StyleBoxFlat_272bh")
+
+[node name="ThemeLabel2" type="Label" parent="UI/ThemesPanel/Box/ThemeRow/ThemeBox2" unique_id=1366134326]
+layout_mode = 2
+theme_override_fonts/font = ExtResource("2_h2yge")
+theme_override_font_sizes/font_size = 24
+text = "Neon"
+horizontal_alignment = 1
+
+[node name="UnlockNeonButton" type="Button" parent="UI/ThemesPanel/Box" unique_id=356742289]
+visible = false
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+size_flags_horizontal = 4
+focus_mode = 0
+theme_override_fonts/font = ExtResource("2_h2yge")
+theme_override_font_sizes/font_size = 24
+theme_override_styles/normal = SubResource("sb_pill")
+theme_override_styles/pressed = SubResource("sb_pill_hi")
+theme_override_styles/hover = SubResource("sb_pill_hi")
+theme_override_styles/focus = SubResource("sb_pill")
+text = "▶ Watch ad: unlock Neon"
+
+[node name="DoneButton" type="Button" parent="UI/ThemesPanel/Box" unique_id=1700000010]
+custom_minimum_size = Vector2(200, 64)
+layout_mode = 2
+size_flags_horizontal = 4
+focus_mode = 0
+theme_override_fonts/font = ExtResource("2_h2yge")
+theme_override_font_sizes/font_size = 28
+theme_override_styles/normal = SubResource("sb_pill")
+theme_override_styles/pressed = SubResource("sb_pill_hi")
+theme_override_styles/hover = SubResource("sb_pill_hi")
+theme_override_styles/focus = SubResource("sb_pill")
+text = "Done"
 
 [node name="PauseButton" type="Button" parent="UI" unique_id=1870605041]
 visible = false
