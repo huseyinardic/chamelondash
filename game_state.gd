@@ -6,6 +6,7 @@ var last_played_date = ""
 var unlocked_themes = [0]  # index 0 (Classic) her zaman açık
 var active_theme = 0
 var game_over_count = 0
+var tutorial_done = false
 
 # oturum içi reklam frekans sınırı (diske yazılmaz, uygulama kapanınca sıfırlanır)
 var games_since_ad := 0
@@ -58,6 +59,7 @@ func save_data():
 			"unlocked_themes": unlocked_themes,
 			"active_theme": active_theme,
 			"game_over_count": game_over_count,
+			"tutorial_done": tutorial_done,
 			"sound_enabled": sound_enabled,
 			"vibration_enabled": vibration_enabled,
 			"music_enabled": music_enabled
@@ -78,6 +80,8 @@ func load_data():
 				unlocked_themes = data.get("unlocked_themes", [0])
 				active_theme = data.get("active_theme", 0)
 				game_over_count = data.get("game_over_count", 0)
+				# güncellemeyle gelen eski oyuncular (en az bir oyun bitirmiş) öğreticiyi görmesin
+				tutorial_done = data.get("tutorial_done", game_over_count > 0)
 				sound_enabled = data.get("sound_enabled", true)
 				vibration_enabled = data.get("vibration_enabled", true)
 				music_enabled = data.get("music_enabled", true)

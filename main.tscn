@@ -296,6 +296,23 @@ theme_override_fonts/font = ExtResource("3_1bvp3")
 theme_override_font_sizes/font_size = 64
 horizontal_alignment = 1
 
+[node name="TutorialLabel" type="Label" parent="UI" unique_id=1700000040]
+visible = false
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 755.0
+offset_bottom = 815.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.5)
+theme_override_constants/shadow_offset_x = 0
+theme_override_constants/shadow_offset_y = 3
+theme_override_fonts/font = ExtResource("3_1bvp3")
+theme_override_font_sizes/font_size = 40
+text = "Tap to change color"
+horizontal_alignment = 1
+vertical_alignment = 1
+
 [node name="Vignette" type="TextureRect" parent="UI" unique_id=1366985475]
 anchors_preset = 15
 anchor_right = 1.0

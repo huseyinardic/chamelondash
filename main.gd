@@ -3,6 +3,7 @@ extends Node2D
 @onready var chameleon: ChameleonBody = $Chameleon
 @onready var gates_container: Node2D = $Gates
 @onready var score_label: Label = $UI/ScoreLabel
+@onready var tutorial_label: Label = $UI/TutorialLabel
 @onready var vignette: TextureRect = $UI/Vignette
 @onready var music_player: AudioStreamPlayer = $MusicPlayer
 @onready var pause_button: Button = $UI/PauseButton
@@ -149,6 +150,14 @@ var _run_start_best := 0            # bu koşu başlarken kayıtlı en iyi skor 
 var _newly_unlocked := -1
 var _results_gen := 0
 
+# --- ilk oyun öğreticisi ---
+const TUTORIAL_GATES := [0, 1, 2]     # 1. kapı bukalemunla aynı renk, sonrakiler birer dokunuş
+const TUTORIAL_FREEZE_GAP := 240.0     # renk tutmazsa kapı bukalemunun bu kadar üstünde bekler
+var _tutorial_active := false
+var _tutorial_spawned := 0
+var _tutorial_passed := 0
+var _tutorial_msg_until := 0           # "Nice! Keep going" mesajının kalkacağı an (ms)
+
 func _ready():
 	colors = theme_palettes[GameState.active_theme]
 	var screen_size = get_viewport_rect().size
@@ -192,6 +201,7 @@ func _ready():
 	get_viewport().size_changed.connect(_layout_menu)
 	_start_tap_pulse(tap_label)
 	_start_tap_pulse(retry_label)
+	_start_tap_pulse(tutorial_label)
 
 	sound_button.pressed.connect(_on_sound_toggled)
 	vibe_button.pressed.connect(_on_vibe_toggled)
@@ -212,9 +222,14 @@ func spawn_gate(y_pos: float):
 	gate.size = Vector2(screen_width, gate_thickness)
 	gate.position = Vector2(0, y_pos)
 	var gate_color_index = randi() % colors.size()
+	var is_tutorial_gate := _tutorial_active and _tutorial_spawned < TUTORIAL_GATES.size()
+	if is_tutorial_gate:
+		gate_color_index = TUTORIAL_GATES[_tutorial_spawned] % colors.size()
+		_tutorial_spawned += 1
 	gate.color = colors[gate_color_index]
 	gate.set_meta("color_index", gate_color_index)
 	gate.set_meta("passed", false)
+	gate.set_meta("tutorial", is_tutorial_gate)
 	gates_container.add_child(gate)
 
 	var highlight = ColorRect.new()
@@ -243,9 +258,12 @@ func _process(delta):
 
 	_resolve_pending_gate()
 
-	next_gate_y += scroll_speed * delta
+	# öğretici kapısı yaklaştı ama renk tutmuyorsa kapılar bekler (ilk oyunda ölmek imkânsız)
+	_update_tutorial_label()
+	var move: float = 0.0 if _tutorial_gate_blocked() else scroll_speed * delta
+	next_gate_y += move
 	for gate in gates_container.get_children():
-		gate.position.y += scroll_speed * delta
+		gate.position.y += move
 
 		if not gate.get_meta("passed") and gate.position.y + gate_thickness >= chameleon_y_position:
 			gate.set_meta("passed", true)
@@ -356,6 +374,10 @@ func _award_pass(gate: ColorRect):
 		_shake = 6.0
 		score_label.modulate = Color(1.5, 1.25, 0.35)
 		create_tween().tween_property(score_label, "modulate", Color(1, 1, 1, 1), 0.45)
+	if gate.get_meta("tutorial", false):
+		_tutorial_passed += 1
+		if _tutorial_passed >= TUTORIAL_GATES.size():
+			_finish_tutorial()
 
 func update_chameleon_color(new_color: Color, animate: bool = true):
 	if animate:
@@ -395,6 +417,7 @@ func end_game():
 	_vibrate(70)
 	score_label.visible = false
 	pause_button.visible = false
+	_hide_tutorial()
 	_play_death_juice()
 
 	# revive sonrası ikinci ölümde de gösterilebilsin diye koşu boyunca birikir
@@ -1005,6 +1028,7 @@ func start_game():
 	score_label.text = str(score)
 	score_label.visible = true
 	_apply_music()
+	_begin_tutorial()
 
 	while not is_instance_valid(last_spawned_gate) or last_spawned_gate.position.y > -2600.0:
 		spawn_gate(next_gate_y)
@@ -1014,7 +1038,62 @@ func restart_run():
 	_used_revive_this_run = false
 	_run_start_best = GameState.high_score
 	_newly_unlocked = -1
+	_begin_tutorial()
 	_reset_field(false)
+
+# ------------------------------------------------------------------ ilk oyun öğreticisi
+
+func _begin_tutorial() -> void:
+	_tutorial_active = not GameState.tutorial_done
+	_tutorial_spawned = 0
+	_tutorial_passed = 0
+	_tutorial_msg_until = 0
+	# yazı, bekleyen kapı ile bukalemunun arasında dursun
+	tutorial_label.offset_top = chameleon_y_position - 205.0
+	tutorial_label.offset_bottom = chameleon_y_position - 145.0
+	tutorial_label.visible = _tutorial_active
+
+# Sıradaki (henüz geçilmemiş, bukalemuna en yakın) öğretici kapısı.
+func _next_tutorial_gate() -> ColorRect:
+	var best: ColorRect = null
+	for gate in gates_container.get_children():
+		if gate.get_meta("passed") or not gate.get_meta("tutorial", false):
+			continue
+		if best == null or gate.position.y > best.position.y:
+			best = gate
+	return best
+
+func _tutorial_gate_blocked() -> bool:
+	if not _tutorial_active:
+		return false
+	var gate := _next_tutorial_gate()
+	if gate == null:
+		return false
+	var gap: float = chameleon_y_position - (gate.position.y + gate_thickness)
+	return gap <= TUTORIAL_FREEZE_GAP and gate.get_meta("color_index") != current_color_index
+
+func _update_tutorial_label() -> void:
+	if _tutorial_active:
+		var gate := _next_tutorial_gate()
+		var needs_tap: bool = gate != null and gate.get_meta("color_index") != current_color_index
+		tutorial_label.text = "Tap to change color" if needs_tap else "Match the gate's color"
+		tutorial_label.visible = true
+	elif _tutorial_msg_until > 0 and Time.get_ticks_msec() >= _tutorial_msg_until:
+		_tutorial_msg_until = 0
+		tutorial_label.visible = false
+
+func _finish_tutorial() -> void:
+	_tutorial_active = false
+	GameState.tutorial_done = true
+	GameState.save_data()
+	tutorial_label.text = "Nice! Keep going"
+	tutorial_label.visible = true
+	_tutorial_msg_until = Time.get_ticks_msec() + 1400
+
+func _hide_tutorial() -> void:
+	_tutorial_active = false
+	_tutorial_msg_until = 0
+	tutorial_label.visible = false
 
 # keep_progress = true -> revive (skor/hız/renk korunur); false -> tam yeniden başlat
 func _reset_field(keep_progress: bool) -> void:
@@ -1075,6 +1154,7 @@ func _show_menu() -> void:
 	_kill_menu_tweens()
 	chameleon.visible = false
 	score_label.visible = false
+	_hide_tutorial()
 	themes_panel.visible = false
 	start_panel.modulate.a = 1.0
 	start_panel.visible = true
