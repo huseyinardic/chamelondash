@@ -1,6 +1,12 @@
 # Godot 4+ specific ignores
 .godot/
-/android/
+# Godot'un kurduğu Android build şablonu (yeniden üretilebilir). android/firebase_*
+# eklenti .aar'ları ise takip edilir — export plugin onları bu sabit yoldan okuyor.
+/android/build/
+/android/.build_version
+
+# Firebase config — APK'ya zaten gömülüyor ama herkese açık depoya konmasın
+/google-services.json
 
 # Build outputs
 *.apk

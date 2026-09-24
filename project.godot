@@ -25,6 +25,7 @@ boot_splash/minimum_display_time=1100
 [autoload]
 
 GameState="*uid://cqfu6eeo7gbrp"
+Analytics="*res://analytics.gd"
 
 [display]
 
@@ -36,7 +37,7 @@ window/handheld/orientation=1
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/SharePlugin/plugin.cfg", "res://addons/admob/plugin.cfg")
+enabled=PackedStringArray("res://addons/SharePlugin/plugin.cfg", "res://addons/admob/plugin.cfg", "res://addons/godotx_firebase/plugin.cfg")
 
 [input_devices]
 
@@ -54,5 +55,6 @@ locale/translations=PackedStringArray("res://addons/admob/gdscript/sample/transl
 
 rendering_device/driver.windows="d3d12"
 renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.05882353, 0.14117648, 0.09411765, 1)

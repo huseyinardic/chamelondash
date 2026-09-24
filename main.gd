@@ -149,6 +149,7 @@ var _continue_ad_pending := false   # "Continue"a basıldı, ödüllü reklamın
 var _run_start_best := 0            # bu koşu başlarken kayıtlı en iyi skor ("New best" karşılaştırması)
 var _newly_unlocked := -1
 var _results_gen := 0
+var _run_start_msec := 0            # analitik: koşu süresi (revive dahil)
 
 # --- ilk oyun öğreticisi ---
 const TUTORIAL_GATES := [0, 1, 2]     # 1. kapı bukalemunla aynı renk, sonrakiler birer dokunuş
@@ -424,9 +425,17 @@ func end_game():
 	if score >= 15 and 1 not in GameState.unlocked_themes:
 		if GameState.unlock_theme(1):
 			_newly_unlocked = 1
+			Analytics.log_event("theme_unlocked", {"theme": theme_names[1], "source": "score"})
 	if GameState.daily_streak >= 3 and 2 not in GameState.unlocked_themes:
 		if GameState.unlock_theme(2):
 			_newly_unlocked = 2
+			Analytics.log_event("theme_unlocked", {"theme": theme_names[2], "source": "streak"})
+
+	Analytics.log_event("game_over", {
+		"score": score,
+		"duration_sec": int(float(Time.get_ticks_msec() - _run_start_msec) / 1000.0),
+		"revived": 1 if _used_revive_this_run else 0,
+	})
 
 	if score > GameState.high_score:
 		GameState.high_score = score
@@ -461,6 +470,7 @@ func _show_continue() -> void:
 	results_panel.visible = false
 	continue_panel.visible = true
 	continue_panel.modulate.a = 0.0
+	Analytics.log_event("revive_offered", {"score": score})
 	# ölüm animasyonu okunabilsin diye kısa bir gecikmeyle belirir
 	create_tween().tween_property(continue_panel, "modulate:a", 1.0, 0.2).set_delay(0.2)
 
@@ -487,6 +497,7 @@ func _on_continue_pressed() -> void:
 		return
 	_continue_ad_pending = true
 	continue_button.disabled = true
+	Analytics.log_event("revive_accepted", {"score": score})
 	_show_rewarded("revive")
 
 func _show_results() -> void:
@@ -498,6 +509,8 @@ func _show_results() -> void:
 
 	var is_new_best: bool = score > _run_start_best and score > 0
 	var gap: int = _run_start_best - score
+	if is_new_best:
+		Analytics.log_event("new_best", {"score": score, "previous_best": _run_start_best})
 	best_badge.visible = is_new_best
 	high_score_label.visible = not is_new_best and GameState.high_score > 0
 	if gap == 0:
@@ -617,6 +630,7 @@ func _on_consent_form_dismissed(_error: FormError) -> void:
 	_initialize_ads()
 
 func _initialize_ads() -> void:
+	_apply_analytics_consent()
 	if _ads_initialized:
 		return
 	_ads_initialized = true
@@ -628,6 +642,24 @@ func _initialize_ads() -> void:
 	await get_tree().create_timer(0.1).timeout
 	load_interstitial_ad()
 	load_rewarded_ad()
+
+# UMP akışı her yoldan _initialize_ads()'e çıkar; analitik onayını da burada
+# netleştiriyoruz. UMP kullanıcının hangi amaçlara izin verdiğini Godot'a ayrıntılı
+# vermediği için onay gerektiren bölgelerde (AB/İngiltere) analitik kapalı kalır.
+func _apply_analytics_consent() -> void:
+	if OS.get_name() != "Android":
+		return
+	if OS.is_debug_build():
+		# test cihazlarında AB simülasyonu açık; DebugView ile test edilebilsin diye
+		Analytics.set_consent(true)
+		return
+	match UserMessagingPlatform.consent_information.get_consent_status():
+		ConsentInformation.ConsentStatus.NOT_REQUIRED:
+			Analytics.set_consent(true)
+		ConsentInformation.ConsentStatus.REQUIRED, ConsentInformation.ConsentStatus.OBTAINED:
+			Analytics.set_consent(false)
+		_:
+			pass   # UNKNOWN (ör. çevrimdışı): önceki açılıştaki kalıcı tercih geçerli kalsın
 
 func _get_interstitial_unit_id() -> String:
 	if OS.get_name() == "Android":
@@ -839,7 +871,8 @@ func _grant_reward(purpose: String) -> void:
 		"revive":
 			_revive()
 		"unlock_neon":
-			GameState.unlock_theme(2)
+			if GameState.unlock_theme(2):
+				Analytics.log_event("theme_unlocked", {"theme": theme_names[2], "source": "ad"})
 			setup_start_panel()
 
 func _refresh_unlock_neon_button() -> void:
@@ -853,6 +886,7 @@ func _on_unlock_neon_pressed() -> void:
 	_show_rewarded("unlock_neon")
 
 func _revive() -> void:
+	Analytics.log_event("revive_granted", {"score": score})
 	_used_revive_this_run = true
 	_vibrate(15)
 	_reset_field(true)
@@ -865,6 +899,7 @@ func _revive() -> void:
 func _on_share_pressed():
 	if share_node == null or not share_node.has_method("share_image"):
 		return
+	Analytics.log_event("share", {"content_type": "score", "score": score})
 	await get_tree().process_frame
 	var img = get_viewport().get_texture().get_image()
 	var save_path = OS.get_user_data_dir() + "/share_score.png"
@@ -1012,6 +1047,7 @@ func _on_swatch_pressed(index: int):
 		return
 	GameState.active_theme = index
 	GameState.save_data()
+	Analytics.log_event("theme_selected", {"theme": theme_names[index]})
 	colors = theme_palettes[index]
 	for i in range(theme_swatches.size()):
 		update_swatch_visual(theme_swatches[i], i)
@@ -1023,6 +1059,7 @@ func start_game():
 	_used_revive_this_run = false
 	_run_start_best = GameState.high_score
 	_newly_unlocked = -1
+	_run_start_msec = Time.get_ticks_msec()
 	start_panel.visible = false
 	pause_button.visible = true
 	score_label.text = str(score)
@@ -1038,6 +1075,7 @@ func restart_run():
 	_used_revive_this_run = false
 	_run_start_best = GameState.high_score
 	_newly_unlocked = -1
+	_run_start_msec = Time.get_ticks_msec()
 	_begin_tutorial()
 	_reset_field(false)
 
@@ -1086,6 +1124,7 @@ func _finish_tutorial() -> void:
 	_tutorial_active = false
 	GameState.tutorial_done = true
 	GameState.save_data()
+	Analytics.log_event("tutorial_complete")
 	tutorial_label.text = "Nice! Keep going"
 	tutorial_label.visible = true
 	_tutorial_msg_until = Time.get_ticks_msec() + 1400
