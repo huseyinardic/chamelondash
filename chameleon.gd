@@ -94,8 +94,11 @@ func _draw() -> void:
 	for x in [-44.0, -34.0, -24.0, -14.0, -4.0]:
 		var k: float = (x + 12.0) / 40.0
 		bumps.append(Vector2(x, 12.0 - 27.0 * sqrt(maxf(0.0, 1.0 - k * k)) + 2.0))
-	var back_leg := [Vector2(-30, 28), Vector2(-32, 45)]
-	var front_leg := [Vector2(14, 26), Vector2(17, 45)]
+	# kalça -> diz/dirsek -> ayak: kırık, kısa bacaklar (dümdüz çubuk + iki yuvarlak
+	# parmak istenmeyen bir şekle benziyordu). Ön bacağın dirseği geriye, arka
+	# bacağın dizi öne kırılır — kertenkele duruşu.
+	var back_leg := [Vector2(-30, 24), Vector2(-22, 35), Vector2(-28, 45)]
+	var front_leg := [Vector2(14, 22), Vector2(7, 34), Vector2(14, 45)]
 
 	# --- 1) ana siluet konturu (kuyruk, arka bacak, tümsekler, gövde, miğfer, baş) ---
 	for p in tail:
@@ -164,12 +167,25 @@ func _draw() -> void:
 	if head_item != "":
 		Costumes.draw_item(self, head_item)
 
-# Tombul bacak + iki parmaklı "eldiven" ayak (bukalemunun kavrayan ayağı).
-# grow > 0 -> kontur katmanı (her parça o kadar büyük çizilir).
+# Kırık bacak + öne uzanan yassı ayak (bukalemunun kavrayan ayağı gibi).
+# grow > 0 -> kontur katmanı (her parça o kadar büyük çizilir); parmak
+# çizgileri yalnız dolgu katmanında.
 func _leg(seg: Array, col: Color, grow: float) -> void:
-	var a: Vector2 = seg[0]
-	var b: Vector2 = seg[1]
-	draw_line(a, b, col, 9.0 + grow * 2.0, true)
-	draw_circle(a, 4.5 + grow, col)
-	draw_circle(b + Vector2(-4.5, 2.0), 4.2 + grow, col)
-	draw_circle(b + Vector2(4.5, 2.0), 4.2 + grow, col)
+	var hip: Vector2 = seg[0]
+	var knee: Vector2 = seg[1]
+	var foot: Vector2 = seg[2]
+	var w := 9.0 + grow * 2.0
+	draw_line(hip, knee, col, w + 1.0, true)
+	draw_line(knee, foot, col, w, true)
+	draw_circle(hip, 5.0 + grow, col)
+	draw_circle(knee, 4.8 + grow, col)
+	var c := foot + Vector2(3.0, 2.0)
+	var pts := PackedVector2Array()
+	for i in 20:
+		var a := TAU * i / 20.0
+		pts.append(c + Vector2(cos(a) * (9.0 + grow), sin(a) * (4.2 + grow)))
+	draw_colored_polygon(pts, col)
+	if grow == 0.0:
+		var ln := skin.darkened(0.48)
+		draw_line(c + Vector2(4.0, -2.5), c + Vector2(4.0, 1.5), Color(ln, 0.55), 1.4, true)
+		draw_line(c + Vector2(0.0, -3.0), c + Vector2(0.0, 1.5), Color(ln, 0.55), 1.4, true)
