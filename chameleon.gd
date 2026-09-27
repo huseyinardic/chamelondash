@@ -19,6 +19,16 @@ const OUTLINE := 2.6   # çizim ölçeğiyle (1.08) birlikte büyür
 		skin = value
 		queue_redraw()
 
+# Takılı kostümler (Costumes.LIST id'leri; "" = yok)
+var head_item := "":
+	set(value):
+		head_item = value
+		queue_redraw()
+var acc_item := "":
+	set(value):
+		acc_item = value
+		queue_redraw()
+
 func set_skin(c: Color) -> void:
 	skin = c
 
@@ -131,6 +141,12 @@ func _draw() -> void:
 	draw_circle(pupil, 7.5, ink)
 	draw_circle(pupil + Vector2(-2.4, -2.6), 2.6, Color.WHITE)
 	draw_circle(pupil + Vector2(2.2, 2.4), 1.1, Color(1, 1, 1, 0.85))
+
+	# --- 7) kostümler (aksesuar gözün üstünde, başlık en üstte) ---
+	if acc_item != "":
+		Costumes.draw_item(self, acc_item)
+	if head_item != "":
+		Costumes.draw_item(self, head_item)
 
 # Tombul bacak + iki parmaklı "eldiven" ayak (bukalemunun kavrayan ayağı).
 # grow > 0 -> kontur katmanı (her parça o kadar büyük çizilir).

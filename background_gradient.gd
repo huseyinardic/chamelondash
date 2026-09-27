@@ -29,5 +29,6 @@ func _ready():
 func _fit_to_viewport() -> void:
 	# Node2D altındaki bir Control'ün anchor'ı çözülmüyor (ebeveyn Control yok) —
 	# anchor ile bırakınca boyut 0 kalıyor ve geçiş hiç görünmüyordu. Boyutu elle ver.
+	set_anchors_preset(Control.PRESET_TOP_LEFT)   # tam ekran anchor'ı boyutu ezmesin
 	position = Vector2.ZERO
 	size = get_viewport_rect().size

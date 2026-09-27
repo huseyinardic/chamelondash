@@ -85,6 +85,21 @@ const TAP_REACTION_SEC := 0.45   # kapıyı geçtikten sonra yeniden odaklanma p
 const TAP_INTERVAL_SEC := 0.2    # sayarak yapılan ardışık iki dokunuş arası
 var _prev_gate_color := 0
 var color_wheel: ColorWheel
+# ateş böceği ekonomisi / Wardrobe (kodla kurulur: _build_economy_ui)
+const NEW_BEST_FIREFLY_BONUS := 10
+var costume_shop: CostumeShop
+var _tab_costumes: Button
+var _tab_themes: Button
+var _fly_counter: HBoxContainer
+var _fly_counter_label: Label
+var _wardrobe_badge: Control
+var _fly_row: HBoxContainer
+var _fly_label: Label
+var _x2_button: Button
+var _goal_label: Label
+var _run_fireflies := 0
+var daily_panel: DailyRewardPanel
+var _x2_claimed := false
 var backdrop: JungleBackdrop
 
 var score = 0
@@ -184,6 +199,7 @@ func _ready():
 	unlock_neon_button.pressed.connect(_on_unlock_neon_pressed)
 	_setup_ads()
 
+	_build_economy_ui()
 	_apply_safe_area()
 
 	dim_overlay.visible = false
@@ -198,8 +214,9 @@ func _ready():
 	add_child(backdrop)
 	move_child(backdrop, $BackgroundGradient.get_index() + 1)
 	backdrop.bg_gradient = $BackgroundGradient.gradient
-	backdrop.dim_rects = [$UI/StartPanel/DimBackground, dim_overlay, $UI/ThemesPanel/Dim, $UI/PausePanel/Dim]
+	backdrop.dim_rects = [$UI/StartPanel/DimBackground, dim_overlay, $UI/ThemesPanel/Dim, $UI/PausePanel/Dim, daily_panel.dim]
 	backdrop.set_theme(GameState.active_theme, false)
+	_apply_costumes()
 	color_wheel = ColorWheel.new()
 	color_wheel.name = "ColorWheel"
 	add_child(color_wheel)
@@ -298,6 +315,8 @@ func _process(delta):
 	_update_backdrop()
 	_update_menu(delta)
 	_update_continue(delta)
+	if _go_stage == "results":
+		_refresh_x2_button()
 	if _rewarded_active:
 		_try_resolve_rewarded()   # dismiss sonrası ödül bekleme süresini kontrol et
 	if not game_started or game_over:
@@ -588,6 +607,8 @@ func _show_results() -> void:
 	streak_label.text = "🔥 " + str(GameState.daily_streak) + " day streak"
 	streak_label.visible = GameState.daily_streak >= 2
 
+	_award_run_fireflies(is_new_best)
+
 	results_panel.visible = true
 	results_panel.modulate.a = 0.0
 	create_tween().tween_property(results_panel, "modulate:a", 1.0, 0.25)
@@ -800,7 +821,7 @@ func _apply_safe_area() -> void:
 	var top_inset: float = float(safe.position.y) * scale_y
 	var bottom_inset: float = maxf(0.0, float(win.y - safe.end.y) * scale_y)
 	if top_inset > 0.0:
-		for c: Control in [score_label, pause_button, header, settings_row, results_top, results_middle]:
+		for c: Control in [score_label, pause_button, header, settings_row, results_top, results_middle, _fly_counter]:
 			c.offset_top += top_inset
 			c.offset_bottom += top_inset
 	if bottom_inset > 0.0:
@@ -931,6 +952,8 @@ func _grant_reward(purpose: String) -> void:
 	match purpose:
 		"revive":
 			_revive()
+		"double_fireflies":
+			_on_double_fireflies_granted()
 		"unlock_neon":
 			if GameState.unlock_theme(2):
 				Analytics.log_event("theme_unlocked", {"theme": theme_names[2], "source": "ad"})
@@ -938,7 +961,8 @@ func _grant_reward(purpose: String) -> void:
 
 func _refresh_unlock_neon_button() -> void:
 	var neon_locked: bool = 2 not in GameState.unlocked_themes
-	unlock_neon_button.visible = neon_locked and rewarded_ready()
+	var on_themes_tab: bool = costume_shop == null or not costume_shop.visible
+	unlock_neon_button.visible = neon_locked and rewarded_ready() and on_themes_tab
 
 func _on_unlock_neon_pressed() -> void:
 	if 2 in GameState.unlocked_themes:
@@ -989,6 +1013,9 @@ func setup_start_panel():
 	streak_display_label.visible = GameState.daily_streak >= 2
 	# temalar ilk oyundan sonra (ya da ikinci tema açıldıysa) görünür
 	themes_button.visible = GameState.game_over_count > 0 or GameState.unlocked_themes.size() > 1
+	_fly_counter_label.text = str(GameState.fireflies)
+	_fly_counter.visible = GameState.fireflies > 0 or GameState.game_over_count > 0
+	_wardrobe_badge.visible = Costumes.any_affordable()
 
 	var theme_label_paths = [
 		"Box/ThemeRow/ThemeBox0/ThemeLabel0",
@@ -1266,6 +1293,7 @@ func _show_menu() -> void:
 	_menu_color_t = 0.0
 	_layout_menu()
 	setup_start_panel()
+	_maybe_show_daily_reward()
 
 func _layout_menu() -> void:
 	var vs := get_viewport_rect().size
@@ -1351,19 +1379,204 @@ func _finish_start() -> void:
 	start_game()
 	start_panel.modulate.a = 1.0
 
-func _open_themes() -> void:
+func _open_themes(tab: String = "costumes") -> void:
 	setup_start_panel()
+	costume_shop.open(colors)
+	_show_wardrobe_tab(tab)
 	themes_panel.modulate.a = 0.0
 	themes_panel.visible = true
 	create_tween().tween_property(themes_panel, "modulate:a", 1.0, 0.18)
 
 func _close_themes() -> void:
 	themes_panel.visible = false
+	setup_start_panel()   # sayaç / rozet satın alımlardan sonra güncellensin
 
 func _on_themes_panel_input(event: InputEvent) -> void:
 	if _is_tap(event):
 		themes_panel.accept_event()
 		_close_themes()
+
+# ------------------------------------------------------------------ ateş böceği / Wardrobe
+
+# Ekonomi arayüzü kodla kurulur; stil ve fontlar sahnedeki mevcut düğme ve
+# etiketlerden kopyalanır (Themes paneli "Wardrobe" olur: Costumes + Themes sekmeleri).
+func _build_economy_ui() -> void:
+	var box: VBoxContainer = $UI/ThemesPanel/Box
+	$UI/ThemesPanel/Box/ThemesTitle.text = "Wardrobe"
+	box.add_theme_constant_override("separation", 22)
+	var tabs := HBoxContainer.new()
+	tabs.alignment = BoxContainer.ALIGNMENT_CENTER
+	tabs.add_theme_constant_override("separation", 12)
+	_tab_costumes = _button_from(themes_done_button, "Costumes", Vector2(180, 56))
+	_tab_themes = _button_from(themes_done_button, "Themes", Vector2(180, 56))
+	_tab_costumes.pressed.connect(_show_wardrobe_tab.bind("costumes"))
+	_tab_themes.pressed.connect(_show_wardrobe_tab.bind("themes"))
+	tabs.add_child(_tab_costumes)
+	tabs.add_child(_tab_themes)
+	box.add_child(tabs)
+	box.move_child(tabs, 1)
+	costume_shop = CostumeShop.new()
+	costume_shop.button_template = themes_done_button
+	costume_shop.label_template = $UI/ThemesPanel/Box/ThemeRow/ThemeBox0/ThemeLabel0
+	costume_shop.build()
+	costume_shop.equipment_changed.connect(_apply_costumes)
+	box.add_child(costume_shop)
+	box.move_child(costume_shop, 2)
+
+	# giriş ekranı: sol üstte ateş böceği sayacı, Wardrobe düğmesinde "alınabilir" rozeti
+	themes_button.text = "Wardrobe"
+	_fly_counter = HBoxContainer.new()
+	_fly_counter.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fly_counter.add_theme_constant_override("separation", 6)
+	_fly_counter.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	_fly_counter.offset_left = 22.0
+	_fly_counter.offset_top = 24.0
+	_fly_counter.offset_right = 240.0
+	_fly_counter.offset_bottom = 72.0
+	var icon := FireflyIcon.new()
+	icon.custom_minimum_size = Vector2(44, 44)
+	_fly_counter.add_child(icon)
+	_fly_counter_label = best_score_label.duplicate(0)
+	_fly_counter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_fly_counter_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_fly_counter_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	_fly_counter.add_child(_fly_counter_label)
+	start_panel.add_child(_fly_counter)
+	_wardrobe_badge = Panel.new()
+	_wardrobe_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bs := StyleBoxFlat.new()
+	bs.bg_color = Color(1.0, 0.82, 0.25)
+	bs.set_corner_radius_all(10)
+	_wardrobe_badge.add_theme_stylebox_override("panel", bs)
+	_wardrobe_badge.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_wardrobe_badge.offset_left = -16.0
+	_wardrobe_badge.offset_top = -4.0
+	_wardrobe_badge.offset_right = 4.0
+	_wardrobe_badge.offset_bottom = 16.0
+	themes_button.add_child(_wardrobe_badge)
+
+	# sonuç ekranı: "+18" satırı, x2 ödüllü reklam düğmesi, sıradaki hedef
+	_fly_row = HBoxContainer.new()
+	_fly_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_fly_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fly_row.add_theme_constant_override("separation", 8)
+	var ricon := FireflyIcon.new()
+	ricon.custom_minimum_size = Vector2(48, 48)
+	_fly_row.add_child(ricon)
+	_fly_label = high_score_label.duplicate(0)
+	_fly_label.visible = true
+	_fly_label.add_theme_font_size_override("font_size", 40)
+	_fly_label.add_theme_color_override("font_color", Color(1.0, 0.92, 0.55))
+	_fly_row.add_child(_fly_label)
+	results_middle.add_child(_fly_row)
+	results_middle.move_child(_fly_row, 1)
+	_x2_button = _button_from(continue_button, "▶  x2 fireflies", Vector2(300, 64))
+	_x2_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_x2_button.add_theme_font_size_override("font_size", 28)
+	_x2_button.pressed.connect(_on_x2_pressed)
+	_x2_button.visible = false
+	results_middle.add_child(_x2_button)
+	results_middle.move_child(_x2_button, 2)
+	_goal_label = streak_label.duplicate(0)
+	results_middle.add_child(_goal_label)
+	results_middle.move_child(_goal_label, 3)
+
+	# günlük seri ödülü kartı (menünün üstünde, günün ilk açılışında)
+	daily_panel = DailyRewardPanel.new()
+	daily_panel.build($UI/ThemesPanel/Box/ThemesTitle, $UI/ThemesPanel/Box/ThemeRow/ThemeBox0/ThemeLabel0, continue_button)
+	daily_panel.claimed.connect(_on_daily_claimed)
+	$UI.add_child(daily_panel)
+
+func _button_from(template: Button, text: String, min_size: Vector2) -> Button:
+	var b: Button = template.duplicate(0)
+	b.text = text
+	b.custom_minimum_size = min_size
+	b.disabled = false
+	b.visible = true
+	return b
+
+func _show_wardrobe_tab(tab: String) -> void:
+	var costumes := tab == "costumes"
+	costume_shop.visible = costumes
+	$UI/ThemesPanel/Box/ThemeRow.visible = not costumes
+	_refresh_unlock_neon_button()
+	var hi := themes_done_button.get_theme_stylebox("hover")
+	var lo := themes_done_button.get_theme_stylebox("normal")
+	_tab_costumes.add_theme_stylebox_override("normal", hi if costumes else lo)
+	_tab_themes.add_theme_stylebox_override("normal", lo if costumes else hi)
+
+func _apply_costumes() -> void:
+	for c: ChameleonBody in [chameleon, menu_chameleon]:
+		c.head_item = GameState.equipped_head
+		c.acc_item = GameState.equipped_acc
+
+# Koşu bitince (revive kararından sonra, sonuç ekranında bir kez): geçilen her
+# kapı 1 ateş böceği, yeni rekor +10. Hemen kaydedilir; x2 reklamı aynı miktarı ekler.
+func _award_run_fireflies(is_new_best: bool) -> void:
+	_run_fireflies = score + (NEW_BEST_FIREFLY_BONUS if is_new_best else 0)
+	_x2_claimed = false
+	_fly_row.visible = _run_fireflies > 0
+	if _run_fireflies > 0:
+		GameState.fireflies += _run_fireflies
+		GameState.save_data()
+		Analytics.log_event("fireflies_earned", {"amount": _run_fireflies, "new_best": 1 if is_new_best else 0})
+		_fly_label.text = "+0"
+		create_tween().tween_method(
+			func(v: float): _fly_label.text = "+%d" % int(round(v)),
+			0.0, float(_run_fireflies), 0.6).set_delay(0.3)
+	_refresh_x2_button()
+	_refresh_goal_label()
+
+func _refresh_x2_button() -> void:
+	_x2_button.visible = _go_stage == "results" and not _x2_claimed and _run_fireflies > 0 		and rewarded_ready() and not _rewarded_active
+
+func _on_x2_pressed() -> void:
+	if _x2_claimed or not rewarded_ready() or _rewarded_active:
+		return
+	_show_rewarded("double_fireflies")
+
+func _on_double_fireflies_granted() -> void:
+	if _x2_claimed or _run_fireflies <= 0:
+		return
+	_x2_claimed = true
+	GameState.fireflies += _run_fireflies
+	GameState.save_data()
+	Analytics.log_event("double_fireflies", {"amount": _run_fireflies})
+	_fly_label.text = "+%d" % (_run_fireflies * 2)
+	_pop_label(_fly_label, 1.4)
+	_vibrate(30)
+	_refresh_x2_button()
+	_refresh_goal_label()
+
+# Günün ilk menü açılışında seri ödülü. Yeni oyuncuya ilk oyundan önce gösterilmez
+# (önce oyunu tanısın); o günün ödülü bir sonraki menü açılışında gelir.
+func _maybe_show_daily_reward() -> void:
+	GameState.update_daily_streak()   # uygulama gece yarısını açık geçirdiyse
+	if GameState.game_over_count > 0 and GameState.daily_reward_available():
+		daily_panel.show_for(GameState.daily_reward_preview())
+
+func _on_daily_claimed(r: Dictionary) -> void:
+	Analytics.log_event("streak_reward", {"day": r["day"], "amount": r["amount"], "crown": 1 if r["crown"] else 0})
+	if r["crown"]:
+		Analytics.log_event("costume_unlocked", {"item": "crown", "source": "streak"})
+	if r["neon"]:
+		Analytics.log_event("theme_unlocked", {"theme": theme_names[2], "source": "streak"})
+	_apply_costumes()
+	setup_start_panel()
+	_pop_label(_fly_counter_label, 1.5)
+
+# Sıradaki hedef: en ucuz alınmamış kostüm — "bir oyun daha" sebebi.
+func _refresh_goal_label() -> void:
+	var goal := Costumes.next_goal()
+	_goal_label.visible = not goal.is_empty()
+	if goal.is_empty():
+		return
+	if Costumes.any_affordable():
+		_goal_label.text = "New costume ready in the Wardrobe!"
+		_goal_label.modulate = Color(1.0, 0.88, 0.4)
+	else:
+		_goal_label.text = "%s: %d fireflies to go" % [goal["name"], goal["price"] - GameState.fireflies]
+		_goal_label.modulate = Color(1, 1, 1, 1)
 
 # ------------------------------------------------------------------ ayarlar
 
