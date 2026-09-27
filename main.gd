@@ -1455,7 +1455,12 @@ func _build_economy_ui() -> void:
 	_wardrobe_badge.offset_bottom = 16.0
 	themes_button.add_child(_wardrobe_badge)
 
-	# sonuç ekranı: "+18" satırı, x2 ödüllü reklam düğmesi, sıradaki hedef
+	# sonuç ekranı: "+18" ve yanında x2 ödüllü reklam düğmesi, altında sıradaki hedef.
+	# Orta blok biraz yukarı alınır ve sıkılaştırılır ki alttaki "Tap to retry" ile
+	# çakışmasın (taşarsa _fit_results_middle en önemsiz satırları gizler).
+	results_middle.offset_top -= 40.0
+	results_middle.offset_bottom -= 40.0
+	results_middle.add_theme_constant_override("separation", 12)
 	_fly_row = HBoxContainer.new()
 	_fly_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	_fly_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1470,16 +1475,19 @@ func _build_economy_ui() -> void:
 	_fly_row.add_child(_fly_label)
 	results_middle.add_child(_fly_row)
 	results_middle.move_child(_fly_row, 1)
-	_x2_button = _button_from(continue_button, "▶  x2 fireflies", Vector2(300, 64))
-	_x2_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_x2_button.add_theme_font_size_override("font_size", 28)
+	_x2_button = _button_from(continue_button, "▶  x2", Vector2(150, 56))
+	_x2_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_x2_button.add_theme_font_size_override("font_size", 26)
 	_x2_button.pressed.connect(_on_x2_pressed)
 	_x2_button.visible = false
-	results_middle.add_child(_x2_button)
-	results_middle.move_child(_x2_button, 2)
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(10, 0)
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fly_row.add_child(gap)
+	_fly_row.add_child(_x2_button)
 	_goal_label = streak_label.duplicate(0)
 	results_middle.add_child(_goal_label)
-	results_middle.move_child(_goal_label, 3)
+	results_middle.move_child(_goal_label, 2)
 
 	# günlük seri ödülü kartı (menünün üstünde, günün ilk açılışında)
 	daily_panel = DailyRewardPanel.new()
@@ -1526,6 +1534,19 @@ func _award_run_fireflies(is_new_best: bool) -> void:
 			0.0, float(_run_fireflies), 0.6).set_delay(0.3)
 	_refresh_x2_button()
 	_refresh_goal_label()
+	_fit_results_middle()
+
+# Orta blok "Tap to retry"ye taşıyorsa (kısa ekran / büyük çentik) önce seri,
+# sonra hedef satırını gizle — skor, ateş böceği ve açılan tema kartı kalır.
+func _fit_results_middle() -> void:
+	for lbl: Label in [streak_label, _goal_label]:
+		await get_tree().process_frame
+		if not results_panel.visible:
+			return
+		var limit: float = retry_label.get_global_rect().position.y - 12.0
+		if results_middle.get_global_rect().end.y <= limit:
+			return
+		lbl.visible = false
 
 func _refresh_x2_button() -> void:
 	_x2_button.visible = _go_stage == "results" and not _x2_claimed and _run_fireflies > 0 		and rewarded_ready() and not _rewarded_active
@@ -1547,6 +1568,7 @@ func _on_double_fireflies_granted() -> void:
 	_vibrate(30)
 	_refresh_x2_button()
 	_refresh_goal_label()
+	_fit_results_middle()
 
 # Günün ilk menü açılışında seri ödülü. Yeni oyuncuya ilk oyundan önce gösterilmez
 # (önce oyunu tanısın); o günün ödülü bir sonraki menü açılışında gelir.
