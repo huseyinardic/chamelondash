@@ -1,13 +1,16 @@
 extends TextureRect
 
+var gradient: Gradient
+
 func _ready():
 	expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	stretch_mode = TextureRect.STRETCH_SCALE
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var gradient := Gradient.new()
-	gradient.add_point(0.0, Color(0.15, 0.35, 0.28, 1.0))
-	gradient.add_point(1.0, Color(0.04, 0.1, 0.08, 1.0))
+	# Renkleri tema belirler (JungleBackdrop.THEMES); bu başlangıç = Classic.
+	gradient = Gradient.new()
+	gradient.offsets = PackedFloat32Array([0.0, 1.0])
+	gradient.colors = PackedColorArray([Color(0.10, 0.24, 0.20), Color(0.05, 0.13, 0.10)])
 
 	var tex := GradientTexture2D.new()
 	tex.gradient = gradient
@@ -24,5 +27,7 @@ func _ready():
 	get_viewport().size_changed.connect(_fit_to_viewport)
 
 func _fit_to_viewport() -> void:
-	# Tam ekran anchor'ı; boyut anchor'a bağlı olduğu için elle size vermiyoruz.
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Node2D altındaki bir Control'ün anchor'ı çözülmüyor (ebeveyn Control yok) —
+	# anchor ile bırakınca boyut 0 kalıyor ve geçiş hiç görünmüyordu. Boyutu elle ver.
+	position = Vector2.ZERO
+	size = get_viewport_rect().size

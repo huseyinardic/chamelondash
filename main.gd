@@ -79,6 +79,13 @@ var big_breath_interval = 10
 var gate_thickness = 30.0
 var chameleon_y_position = 0.0
 var next_gate_y = -300.0
+# adil kapı rengi: bir önceki kapıdan bu kapıya kalan sürede yetişilemeyecek
+# kadar dokunuş isteyen renk seçilmez (bkz. _pick_gate_color)
+const TAP_REACTION_SEC := 0.45   # kapıyı geçtikten sonra yeniden odaklanma payı
+const TAP_INTERVAL_SEC := 0.2    # sayarak yapılan ardışık iki dokunuş arası
+var _prev_gate_color := 0
+var color_wheel: ColorWheel
+var backdrop: JungleBackdrop
 
 var score = 0
 var game_over = false
@@ -185,6 +192,18 @@ func _ready():
 	chameleon.position = Vector2(screen_size.x / 2.0, screen_size.y * 0.75)
 	chameleon_y_position = chameleon.position.y
 	_cham_home = chameleon.position
+	backdrop = JungleBackdrop.new()
+	backdrop.name = "JungleBackdrop"
+	backdrop.glow_target = _cham_home
+	add_child(backdrop)
+	move_child(backdrop, $BackgroundGradient.get_index() + 1)
+	backdrop.bg_gradient = $BackgroundGradient.gradient
+	backdrop.dim_rects = [$UI/StartPanel/DimBackground, dim_overlay, $UI/ThemesPanel/Dim, $UI/PausePanel/Dim]
+	backdrop.set_theme(GameState.active_theme, false)
+	color_wheel = ColorWheel.new()
+	color_wheel.name = "ColorWheel"
+	add_child(color_wheel)
+	move_child(color_wheel, chameleon.get_index())   # bukalemunun ve kapıların altında
 	update_chameleon_color(colors[current_color_index], false)
 
 	_death_flash = ColorRect.new()
@@ -222,7 +241,7 @@ func spawn_gate(y_pos: float):
 	var screen_width = get_viewport_rect().size.x
 	gate.size = Vector2(screen_width, gate_thickness)
 	gate.position = Vector2(0, y_pos)
-	var gate_color_index = randi() % colors.size()
+	var gate_color_index := _pick_gate_color(y_pos)
 	var is_tutorial_gate := _tutorial_active and _tutorial_spawned < TUTORIAL_GATES.size()
 	if is_tutorial_gate:
 		gate_color_index = TUTORIAL_GATES[_tutorial_spawned] % colors.size()
@@ -231,6 +250,7 @@ func spawn_gate(y_pos: float):
 	gate.set_meta("color_index", gate_color_index)
 	gate.set_meta("passed", false)
 	gate.set_meta("tutorial", is_tutorial_gate)
+	_prev_gate_color = gate_color_index
 	gates_container.add_child(gate)
 
 	var highlight = ColorRect.new()
@@ -247,9 +267,35 @@ func spawn_gate(y_pos: float):
 	gate.add_child(shade)
 
 	last_spawned_gate = gate
-	
+
+# Rastgele renk, ama bir önceki kapıyı geçtikten sonra kalan sürede
+# yetişilemeyecek kadar dokunuş gerektiren renkler elenir — ölüm şanstan
+# değil oyuncudan gelsin. Yavaş başlangıçta her renk serbest; kısıt ancak
+# hız arttıkça ve kapılar sıklaştıkça devreye girer.
+func _pick_gate_color(y_pos: float) -> int:
+	var n := colors.size()
+	var ahead := 0
+	for g in gates_container.get_children():
+		if not g.get_meta("passed"):
+			ahead += 1
+	# Önceki kapıya uzaklık onun ŞU ANKİ konumundan ölçülür — kapılar kaydıkça
+	# oluşturulduğu andaki konum eskir. (bu kapı bukalemuna ulaştığında öndeki
+	# kapılar geçilmiş olacak -> hız o skora göre)
+	var prev_y: float = last_spawned_gate.position.y if is_instance_valid(last_spawned_gate) else INF
+	var secs: float = (prev_y - y_pos) / _speed_for_score(score + ahead)
+	var options: Array[int] = []
+	for c in n:
+		var taps := posmod(c - _prev_gate_color, n)
+		if taps == 0 or TAP_REACTION_SEC + taps * TAP_INTERVAL_SEC <= secs:
+			options.append(c)
+	return options.pick_random()
+
+func _speed_for_score(s: int) -> float:
+	return 220.0 + min(s * 6.0, 260.0)
+
 func _process(delta):
 	_update_juice(delta)
+	_update_backdrop()
 	_update_menu(delta)
 	_update_continue(delta)
 	if _rewarded_active:
@@ -279,6 +325,17 @@ func _process(delta):
 	
 	
 
+# Arka plan katmanları kapılarla birlikte kayar; menüde ağır ağır süzülür,
+# oyun bitince ve öğretici kapısı beklerken durur.
+func _update_backdrop() -> void:
+	if not game_started:
+		backdrop.speed = 35.0
+	elif game_over or _tutorial_gate_blocked():
+		backdrop.speed = 0.0
+	else:
+		backdrop.speed = scroll_speed
+	backdrop.glow_target = _cham_home if (game_started or _starting) else _menu_center
+
 func _update_juice(delta):
 	var shake_off := Vector2.ZERO
 	if _shake > 0.01:
@@ -293,6 +350,8 @@ func _update_juice(delta):
 		var sr: float = clamp((scroll_speed - 220.0) / 260.0, 0.0, 1.0)
 		vignette.self_modulate.a = 1.0 + sr * 0.5
 	chameleon.position = _cham_home + shake_off + Vector2(0.0, bob)
+	color_wheel.position = chameleon.position
+	color_wheel.visible = game_started and not game_over and chameleon.visible
 
 	# revive sonrası dokunulmazlık: bukalemun yanıp söner ("geri döndün, kısa süre güvendesin")
 	if Time.get_ticks_msec() < _revive_grace_until:
@@ -363,7 +422,7 @@ func _resolve_pending_gate() -> void:
 func _award_pass(gate: ColorRect):
 	score += 1
 	score_label.text = str(score)
-	scroll_speed = 220.0 + min(score * 6.0, 260.0)
+	scroll_speed = _speed_for_score(score)
 	pass_sound.pitch_scale = 1.0 + min(score * 0.02, 0.5)
 	if GameState.sound_enabled:
 		pass_sound.play()
@@ -381,6 +440,8 @@ func _award_pass(gate: ColorRect):
 			_finish_tutorial()
 
 func update_chameleon_color(new_color: Color, animate: bool = true):
+	color_wheel.set_colors(colors)
+	color_wheel.set_current(current_color_index, animate)
 	if animate:
 		create_tween().tween_property(chameleon, "skin", new_color, 0.15)
 		_squash(chameleon, Vector2(1.18, 0.82))
@@ -1049,6 +1110,7 @@ func _on_swatch_pressed(index: int):
 	GameState.save_data()
 	Analytics.log_event("theme_selected", {"theme": theme_names[index]})
 	colors = theme_palettes[index]
+	backdrop.set_theme(index, true)
 	for i in range(theme_swatches.size()):
 		update_swatch_visual(theme_swatches[i], i)
 	_refresh_menu_hero()
@@ -1146,6 +1208,7 @@ func _reset_field(keep_progress: bool) -> void:
 		gate_spawn_count = 0
 	next_gate_y = -300.0
 	last_spawned_gate = null
+	_prev_gate_color = current_color_index
 
 	for gate in gates_container.get_children():
 		gate.queue_free()
@@ -1371,6 +1434,7 @@ func _return_to_menu() -> void:
 	gate_spawn_count = 0
 	next_gate_y = -300.0
 	last_spawned_gate = null
+	_prev_gate_color = current_color_index
 	_shake = 0.0
 	_idle_t = 0.0
 
