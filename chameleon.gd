@@ -2,12 +2,17 @@
 class_name ChameleonBody
 extends Node2D
 
-# Tek _draw() ile çizilen bukalemun. Eski ~30 Panel + _tint_chameleon yerine geçer.
-# Koordinatlar tasarım uzayında; PIV merkeze alır, K oyuna ölçekler.
-# skin -> gövde/kafa/casque/kuyruk/bacaklar. Göz akı/bebek/ağız sabit.
+# Tek _draw() ile çizilen, sevimli (gerçekçi olmayan) bukalemun — sağa bakar.
+# Bukalemun olduğunu belli eden üç işaret korunur ama yumuşatılır:
+#   taret göz (ten rengi kabarık göz, içinde iri göz bebeği — göz akı yok),
+#   geriye doğru kıvrılan miğfer, spiral kuyruk.
+# Sevimlilik oranlardan gelir: iri baş, tombul gövde, kısa bacaklar, yuvarlak
+# hatlar, sırtta sivri diken yerine yumuşak tümsekler.
+# Tüm parçalar önce koyu kontur rengiyle biraz büyük çizilir, sonra dolgu —
+# böylece tek parça "çıkartma" silueti oluşur. Koordinatlar oyun pikseli, merkez (0,0).
+# skin -> gövdenin tüm tonları ondan türetilir (tema/renk değişimi).
 
-const PIV := Vector2(214.0, 197.0)
-const K := 0.44
+const OUTLINE := 2.6   # çizim ölçeğiyle (1.08) birlikte büyür
 
 @export var skin: Color = Color(0.184, 0.72, 0.545):
 	set(value):
@@ -17,77 +22,122 @@ const K := 0.44
 func set_skin(c: Color) -> void:
 	skin = c
 
-func _pt(x: float, y: float) -> Vector2:
-	return (Vector2(x, y) - PIV) * K
-
-func _pv(a: Array) -> PackedVector2Array:
+func _ellipse(c: Vector2, rx: float, ry: float, n: int = 32) -> PackedVector2Array:
 	var o := PackedVector2Array()
-	var i := 0
-	while i < a.size():
-		o.push_back(_pt(a[i], a[i + 1]))
-		i += 2
+	for i in n:
+		var a := TAU * i / n
+		o.append(c + Vector2(cos(a) * rx, sin(a) * ry))
 	return o
 
 func _closed(p: PackedVector2Array) -> PackedVector2Array:
 	var o := PackedVector2Array(p)
-	o.push_back(p[0])
+	o.append(p[0])
 	return o
 
+# Kuyruk: gövdenin arkasından çıkıp geriye ve alta kıvrılan, uca doğru incelen spiral.
+func _tail_points() -> Array:
+	var pts: Array = []
+	var center := Vector2(-52.0, 30.0)
+	const STEPS := 56
+	for i in STEPS + 1:
+		var t := float(i) / STEPS
+		var ang := -1.35 - t * TAU * 1.55      # yukarıdan başla, geriye -> alta -> öne kıvrıl
+		var r := lerpf(21.0, 3.5, pow(t, 0.85))
+		var w := lerpf(6.0, 1.8, t)            # kalınlık (yarıçap)
+		pts.append([center + Vector2(cos(ang), sin(ang)) * r, w])
+	return pts
+
 func _draw() -> void:
+	var line := skin.darkened(0.48)
+	var dark := skin.darkened(0.16)
 	var belly := skin.lightened(0.34)
-	var dark := skin.darkened(0.26)
-	var line := skin.darkened(0.42)
-	var pad := skin.darkened(0.46)
-	var sclera := Color(0.99, 0.953, 0.882)
-	var ink := Color(0.149, 0.133, 0.121)
+	var spot := skin.lightened(0.24)
+	var ink := Color(0.13, 0.11, 0.12)
+	var blush := Color(1.0, 0.55, 0.62, 0.45)
+	# kuyruk solda ağırlık yaptığı için çizimi biraz sağa kaydır, halkayı dolduracak kadar büyüt
+	draw_set_transform(Vector2(6, 1), 0.0, Vector2.ONE * 1.08)
 
-	# --- kuyruk kıvrımı (gövdenin arka ucundan, geriye/aşağıya) ---
-	var tail := _pv([88,248, 72,262, 60,286, 62,312, 80,330, 106,336, 128,324, 134,300, 122,282, 102,280, 90,292, 92,310, 104,316])
-	draw_polyline(tail, skin, 10.0, true)
-	draw_circle(tail[0], 5.0, skin)
-	draw_circle(tail[tail.size() - 1], 3.0, skin)
-	draw_polyline(tail, line, 2.0, true)
+	var tail := _tail_points()
+	var body := _ellipse(Vector2(-12, 12), 40.0, 27.0, 40)
+	var casque := PackedVector2Array([
+		Vector2(40, -24), Vector2(37, -36), Vector2(29, -46), Vector2(17, -53),
+		Vector2(5, -55), Vector2(-3, -52), Vector2(-4, -44), Vector2(2, -34), Vector2(10, -26)])
+	var head_c := Vector2(24, -6)
+	const HEAD_R := 27.0
+	var snout_c := Vector2(44, 3)
+	const SNOUT_R := 15.0
+	var bumps: Array = []   # sırttaki yumuşak tümsekler (gövdenin üst hattı boyunca)
+	for x in [-44.0, -34.0, -24.0, -14.0, -4.0]:
+		var k: float = (x + 12.0) / 40.0
+		bumps.append(Vector2(x, 12.0 - 27.0 * sqrt(maxf(0.0, 1.0 - k * k)) + 2.0))
+	var back_leg := [Vector2(-30, 28), Vector2(-32, 45)]
+	var front_leg := [Vector2(14, 26), Vector2(17, 45)]
 
-	# --- arka ayak (belin altında, kuyruktan ayrı; ucu gövdenin altından görünür) ---
-	var hind := _pv([156,252, 164,276, 158,296, 152,302, 161,306, 168,299, 172,278, 170,254])
-	draw_colored_polygon(hind, skin)
-	draw_polyline(_closed(hind), line, 2.0, true)
-	draw_polyline(_pv([161,298, 163,307]), line, 2.0, true)
+	# --- 1) ana siluet konturu (kuyruk, arka bacak, tümsekler, gövde, miğfer, baş) ---
+	for p in tail:
+		draw_circle(p[0], p[1] + OUTLINE, line)
+	_leg(back_leg, line, OUTLINE)
+	for b in bumps:
+		draw_circle(b, 5.5 + OUTLINE, line)
+	draw_polyline(_closed(body), line, OUTLINE * 2.0, true)
+	draw_colored_polygon(body, line)
+	draw_polyline(_closed(casque), line, OUTLINE * 2.0, true)
+	draw_circle(head_c, HEAD_R + OUTLINE, line)
+	draw_circle(snout_c, SNOUT_R + OUTLINE, line)
 
-	# --- gövde ---
-	var body := _pv([
-		92,250, 96,205, 108,168, 132,142, 162,128, 196,120, 226,112, 256,108,
-		286,116, 312,134, 332,150, 350,168, 356,186, 350,200, 334,208, 318,212,
-		306,222, 296,240, 270,258, 210,274, 150,278, 108,268, 92,258])
+	# --- 2) dolgular (aynı sıra -> iç sınırlarda çizgi kalmaz, tek parça görünür) ---
+	for p in tail:
+		draw_circle(p[0], p[1], skin)
+	_leg(back_leg, dark, 0.0)
+	for b in bumps:
+		draw_circle(b, 5.5, skin)
 	draw_colored_polygon(body, skin)
+	draw_colored_polygon(casque, dark)
+	draw_circle(head_c, HEAD_R, skin)
+	draw_circle(snout_c, SNOUT_R, skin)
 
-	# --- karın (skin'in açık tonu, ince) ---
-	draw_colored_polygon(_pv([132,252, 190,262, 246,258, 268,246, 250,264, 192,270, 144,262]), Color(belly.r, belly.g, belly.b, 0.7))
+	# --- 3) gövde detayları: karın, benekler, boyun kıvrımı, miğfer çizgisi ---
+	var belly_poly := PackedVector2Array()
+	for i in 17:
+		var a := PI * i / 16.0
+		belly_poly.append(Vector2(-12 + cos(a) * 34.0, 18 + sin(a) * 15.0))
+	draw_colored_polygon(belly_poly, Color(belly, 0.75))
+	draw_circle(Vector2(-30, 0), 5.5, Color(spot, 0.8))
+	draw_circle(Vector2(-16, -6), 4.5, Color(spot, 0.8))
+	draw_circle(Vector2(-38, 12), 3.5, Color(spot, 0.8))
+	draw_circle(Vector2(-22, 10), 3.0, Color(spot, 0.8))
+	draw_arc(head_c, HEAD_R - 1.0, PI * 0.82, PI * 1.12, 12, Color(line, 0.35), 1.8, true)
+	draw_polyline(PackedVector2Array([Vector2(8, -30), Vector2(12, -40), Vector2(22, -48)]), Color(line, 0.3), 1.6, true)
 
-	# --- gövde konturu ---
-	draw_polyline(_closed(body), line, 2.5, true)
+	# --- 4) ön bacak (gövdenin önünde, kendi konturuyla) ---
+	_leg(front_leg, line, OUTLINE)
+	_leg(front_leg, skin, 0.0)
 
-	# --- casque (miğfer) ---
-	var casq := _pv([228,122, 232,90, 248,66, 270,56, 292,62, 310,82, 320,112, 322,134, 300,128, 264,118])
-	draw_colored_polygon(casq, dark)
-	draw_polyline(_closed(casq), line, 1.6, true)
+	# --- 5) yüz: ağız, yanak, burun deliği ---
+	draw_polyline(PackedVector2Array([
+		Vector2(58, 5), Vector2(52, 10), Vector2(44, 12), Vector2(37, 11), Vector2(33, 8)]),
+		ink, 2.4, true)
+	draw_circle(Vector2(20, 8), 5.5, blush)
+	draw_circle(Vector2(54, -4), 1.4, line)
 
-	# --- ön ayak (kavrayan mitten) ---
-	var foot := _pv([228,244, 236,268, 231,292, 224,308, 219,315, 232,318, 243,311, 246,289, 247,264, 245,246])
-	draw_colored_polygon(foot, skin)
-	draw_polyline(_closed(foot), line, 2.2, true)
-	draw_polyline(_pv([229,308, 231,318]), line, 2.2, true)
+	# --- 6) taret göz: ten rengi kabarık top, iri göz bebeği ---
+	# İç halka yok (gözlük/monokl gibi duruyordu); kabarıklığı alt-sağdaki
+	# gölge hilali verir.
+	var eye_c := Vector2(28, -12)
+	draw_circle(eye_c, 14.0 + 1.8, line)
+	draw_circle(eye_c, 14.0, skin.darkened(0.12))
+	draw_circle(eye_c + Vector2(-1.6, -1.6), 12.2, skin.lightened(0.1))
+	var pupil := eye_c + Vector2(3.0, 0.5)
+	draw_circle(pupil, 7.5, ink)
+	draw_circle(pupil + Vector2(-2.4, -2.6), 2.6, Color.WHITE)
+	draw_circle(pupil + Vector2(2.2, 2.4), 1.1, Color(1, 1, 1, 0.85))
 
-	# --- yanak + ağız (sabit) ---
-	draw_circle(_pt(318, 190), 4.0, Color(0.95, 0.63, 0.70, 0.38))
-	draw_polyline(_pv([330,201, 342,207, 352,204, 359,197]), ink, 2.6, true)
-
-	# --- göz turret'i ---
-	var ec := _pt(300, 150)
-	draw_circle(ec, 13.2, skin)
-	draw_arc(ec, 13.2, 0.0, TAU, 40, line, 2.2, true)
-	draw_polyline(_pv([284,161, 296,171, 312,171, 320,160]), line, 2.2, true)
-	# göz akı / bebek / parıltı — sabit
-	draw_circle(ec, 7.0, sclera)
-	draw_circle(_pt(305, 149), 3.1, ink)
-	draw_circle(_pt(300, 144), 1.4, Color.WHITE)
+# Tombul bacak + iki parmaklı "eldiven" ayak (bukalemunun kavrayan ayağı).
+# grow > 0 -> kontur katmanı (her parça o kadar büyük çizilir).
+func _leg(seg: Array, col: Color, grow: float) -> void:
+	var a: Vector2 = seg[0]
+	var b: Vector2 = seg[1]
+	draw_line(a, b, col, 9.0 + grow * 2.0, true)
+	draw_circle(a, 4.5 + grow, col)
+	draw_circle(b + Vector2(-4.5, 2.0), 4.2 + grow, col)
+	draw_circle(b + Vector2(4.5, 2.0), 4.2 + grow, col)
