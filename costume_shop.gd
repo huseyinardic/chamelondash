@@ -10,7 +10,8 @@ extends VBoxContainer
 signal equipment_changed
 
 const CARD_SIZE := Vector2(116, 136)
-const PREVIEW_SCALE := 1.45
+const PREVIEW_SCALE := 1.3      # kask anteni ve pelerin de sığsın
+const LEGEND_GOLD := Color(1.0, 0.82, 0.25)
 const COLOR_INTERVAL := 1.3
 
 var button_template: Button
@@ -28,7 +29,7 @@ var _t := 0.0
 
 func build() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
-	add_theme_constant_override("separation", 14)
+	add_theme_constant_override("separation", 12)
 
 	var bal_row := HBoxContainer.new()
 	bal_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -48,14 +49,14 @@ func build() -> void:
 	_preview = ChameleonBody.new()
 	_preview.scale = Vector2.ONE * PREVIEW_SCALE
 	holder.add_child(_preview)
-	holder.resized.connect(func(): _preview.position = holder.size / 2.0 + Vector2(-6, 14))
+	holder.resized.connect(func(): _preview.position = holder.size / 2.0 + Vector2(0, 20))
 	add_child(holder)
 
 	var grid := GridContainer.new()
 	grid.columns = 4
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	grid.add_theme_constant_override("h_separation", 12)
-	grid.add_theme_constant_override("v_separation", 12)
+	grid.add_theme_constant_override("v_separation", 10)
 	for item in Costumes.LIST:
 		grid.add_child(_make_card(item))
 	add_child(grid)
@@ -74,10 +75,7 @@ func _make_card(item: Dictionary) -> Button:
 	var cham := ChameleonBody.new()
 	cham.scale = Vector2.ONE * 0.62
 	cham.position = Vector2(CARD_SIZE.x / 2.0 - 4.0, 60.0)
-	if item["slot"] == "head":
-		cham.head_item = item["id"]
-	else:
-		cham.acc_item = item["id"]
+	cham.set(_cham_prop(item), item["id"])
 	b.add_child(cham)
 
 	var row := HBoxContainer.new()
@@ -118,7 +116,11 @@ func _select(id: String) -> void:
 	_refresh()
 
 func _slot_key(item: Dictionary) -> String:
-	return "equipped_head" if item["slot"] == "head" else "equipped_acc"
+	return Costumes.slot_key(item)
+
+# ChameleonBody'de o yuvanın özelliği (head_item / acc_item / aura_item)
+func _cham_prop(item: Dictionary) -> String:
+	return item["slot"] + "_item"
 
 func _refresh() -> void:
 	_balance.text = str(GameState.fireflies)
@@ -134,16 +136,14 @@ func _refresh() -> void:
 		else:
 			c["price"].text = "Day 7" if streak else str(it["price"])
 		c["price"].modulate.a = 1.0 if owned or streak or GameState.fireflies >= it["price"] else 0.45
-		_style_card(c["btn"], id == _selected, wearing)
+		_style_card(c["btn"], id == _selected, wearing, Costumes.is_legendary(it))
 
 	_preview.head_item = GameState.equipped_head
 	_preview.acc_item = GameState.equipped_acc
+	_preview.aura_item = GameState.equipped_aura
 	if _selected != "":
 		var sel := Costumes.get_item(_selected)
-		if sel["slot"] == "head":
-			_preview.head_item = _selected
-		else:
-			_preview.acc_item = _selected
+		_preview.set(_cham_prop(sel), _selected)
 
 	_action.visible = _selected != ""
 	if _selected == "":
@@ -162,13 +162,18 @@ func _refresh() -> void:
 		_action.text = "%d more to go" % (item["price"] - GameState.fireflies)
 		_action.disabled = true
 
-func _style_card(b: Button, selected: bool, wearing: bool) -> void:
+func _style_card(b: Button, selected: bool, wearing: bool, legendary: bool) -> void:
 	var st := StyleBoxFlat.new()
 	st.bg_color = Color(1, 1, 1, 0.1) if wearing else Color(0, 0, 0, 0.28)
+	if legendary and not wearing:
+		st.bg_color = Color(0.35, 0.26, 0.05, 0.45)
 	st.set_corner_radius_all(18)
 	if selected:
 		st.set_border_width_all(3)
 		st.border_color = Color(1, 1, 1, 0.95)
+	elif legendary:
+		st.set_border_width_all(2)
+		st.border_color = LEGEND_GOLD
 	for s in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(s, st)
 

@@ -12,6 +12,7 @@ var fireflies := 0
 var owned_costumes: Array = []
 var equipped_head := ""
 var equipped_acc := ""
+var equipped_aura := ""
 var last_reward_date := ""   # günlük seri ödülünün en son alındığı yerel gün
 
 # 7 günlük seri ödülü (ateş böceği). 3. gün Neon teması da açılır, 7. gün Taç
@@ -113,6 +114,7 @@ func save_data():
 			"owned_costumes": owned_costumes,
 			"equipped_head": equipped_head,
 			"equipped_acc": equipped_acc,
+			"equipped_aura": equipped_aura,
 			"last_reward_date": last_reward_date,
 			"sound_enabled": sound_enabled,
 			"vibration_enabled": vibration_enabled,
@@ -140,6 +142,7 @@ func load_data():
 				owned_costumes = data.get("owned_costumes", [])
 				equipped_head = data.get("equipped_head", "")
 				equipped_acc = data.get("equipped_acc", "")
+				equipped_aura = data.get("equipped_aura", "")
 				last_reward_date = data.get("last_reward_date", "")
 				sound_enabled = data.get("sound_enabled", true)
 				vibration_enabled = data.get("vibration_enabled", true)

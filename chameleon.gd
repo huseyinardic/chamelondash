@@ -28,6 +28,14 @@ var acc_item := "":
 	set(value):
 		acc_item = value
 		queue_redraw()
+var aura_item := "":   # efsane "aura" yuvası (ör. altın parıltı — canlandırılır)
+	set(value):
+		aura_item = value
+		queue_redraw()
+
+func _process(_delta: float) -> void:
+	if aura_item != "" and is_visible_in_tree():
+		queue_redraw()   # parıltılar yanıp söner
 
 func set_skin(c: Color) -> void:
 	skin = c
@@ -66,6 +74,12 @@ func _draw() -> void:
 	var blush := Color(1.0, 0.55, 0.62, 0.45)
 	# kuyruk solda ağırlık yaptığı için çizimi biraz sağa kaydır, halkayı dolduracak kadar büyüt
 	draw_set_transform(Vector2(6, 1), 0.0, Vector2.ONE * 1.08)
+	if aura_item == "golden":
+		spot = Color(1.0, 0.84, 0.3)
+	# gövdenin arkasında kalan kostüm parçaları (ör. pelerin) — gövde rengini örtmesin
+	for id in [aura_item, acc_item, head_item]:
+		if id != "":
+			Costumes.draw_behind(self, id)
 
 	var tail := _tail_points()
 	var body := _ellipse(Vector2(-12, 12), 40.0, 27.0, 40)
@@ -143,6 +157,8 @@ func _draw() -> void:
 	draw_circle(pupil + Vector2(2.2, 2.4), 1.1, Color(1, 1, 1, 0.85))
 
 	# --- 7) kostümler (aksesuar gözün üstünde, başlık en üstte) ---
+	if aura_item != "":
+		Costumes.draw_item(self, aura_item)
 	if acc_item != "":
 		Costumes.draw_item(self, acc_item)
 	if head_item != "":

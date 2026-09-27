@@ -1403,7 +1403,9 @@ func _on_themes_panel_input(event: InputEvent) -> void:
 func _build_economy_ui() -> void:
 	var box: VBoxContainer = $UI/ThemesPanel/Box
 	$UI/ThemesPanel/Box/ThemesTitle.text = "Wardrobe"
-	box.add_theme_constant_override("separation", 22)
+	box.add_theme_constant_override("separation", 18)
+	# Wardrobe uzun; arkadaki menü yazıları (başlık, Tap to play) seçilmesin
+	$UI/ThemesPanel/Dim.color.a = 0.96
 	var tabs := HBoxContainer.new()
 	tabs.alignment = BoxContainer.ALIGNMENT_CENTER
 	tabs.add_theme_constant_override("separation", 12)
@@ -1517,6 +1519,7 @@ func _apply_costumes() -> void:
 	for c: ChameleonBody in [chameleon, menu_chameleon]:
 		c.head_item = GameState.equipped_head
 		c.acc_item = GameState.equipped_acc
+		c.aura_item = GameState.equipped_aura
 
 # Koşu bitince (revive kararından sonra, sonuç ekranında bir kez): geçilen her
 # kapı 1 ateş böceği, yeni rekor +10. Hemen kaydedilir; x2 reklamı aynı miktarı ekler.

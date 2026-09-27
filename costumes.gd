@@ -1,7 +1,8 @@
 class_name Costumes
 
-# Kostüm kataloğu ve çizimleri. İki yuva var: "head" (başlık) ve "acc"
-# (aksesuar); her yuvada aynı anda bir kostüm takılır. Kostümler ateş böceği
+# Kostüm kataloğu ve çizimleri. Üç yuva var: "head" (başlık), "acc"
+# (aksesuar) ve "aura" (sadece efsane); her yuvada aynı anda bir kostüm takılır.
+# "legendary" kostümler uzun vadeli hedef: pahalı, Wardrobe'da altın çerçeveli. Kostümler ateş böceği
 # (GameState.fireflies) ile açılır. Çizimler ChameleonBody'nin kendi
 # koordinatlarında (onun _draw'ının sonunda, aynı dönüşümle) yapılır; renkler
 # sabit — bukalemunun her renginde koyu konturla okunur.
@@ -16,6 +17,9 @@ const LIST := [
 	{"id": "wizard", "name": "Wizard Hat", "slot": "head", "price": 900},
 	# satın alınamaz: 7 günlük seri ödülü (GameState.claim_daily_reward)
 	{"id": "crown", "name": "Crown", "slot": "head", "price": 0, "streak": true},
+	{"id": "astro", "name": "Astronaut Helmet", "slot": "head", "price": 2000, "legendary": true},
+	{"id": "cape", "name": "Rainbow Cape", "slot": "acc", "price": 3000, "legendary": true},
+	{"id": "golden", "name": "Golden Sparkle", "slot": "aura", "price": 5000, "legendary": true},
 ]
 
 const INK := Color(0.1, 0.08, 0.1)
@@ -26,6 +30,15 @@ static func get_item(id: String) -> Dictionary:
 		if c["id"] == id:
 			return c
 	return {}
+
+static func is_legendary(c: Dictionary) -> bool:
+	return c.get("legendary", false)
+
+static func slot_key(c: Dictionary) -> String:
+	match c["slot"]:
+		"head": return "equipped_head"
+		"aura": return "equipped_aura"
+	return "equipped_acc"
 
 static func is_streak_item(c: Dictionary) -> bool:
 	return c.get("streak", false)
@@ -57,6 +70,13 @@ static func draw_item(cv: CanvasItem, id: String) -> void:
 		"cowboy": _cowboy(cv)
 		"wizard": _wizard(cv)
 		"crown": _crown(cv)
+		"astro": _astro(cv)
+		"golden": _golden(cv)
+
+# Bukalemun gövdesinden ÖNCE çizilen parçalar (gövdenin arkasında kalır).
+static func draw_behind(cv: CanvasItem, id: String) -> void:
+	match id:
+		"cape": _cape(cv)
 
 static func _shape(cv: CanvasItem, pts: PackedVector2Array, fill: Color) -> void:
 	cv.draw_colored_polygon(pts, fill)
@@ -187,3 +207,63 @@ static func _star(cv: CanvasItem, c: Vector2, r: float, col: Color) -> void:
 		var rr := r if i % 2 == 0 else r * 0.45
 		pts.append(c + Vector2(cos(a), sin(a)) * rr)
 	cv.draw_colored_polygon(pts, col)
+
+# Astronot kaskı: başı ve miğferi saran cam fanus, gri yaka, kırmızı uçlu anten.
+static func _astro(cv: CanvasItem) -> void:
+	var c := Vector2(19, -13)
+	const R := 47.0   # miğferin ucu da fanusun içinde kalsın
+	cv.draw_line(c + Vector2(8, -R + 1), c + Vector2(14, -R - 14), INK, 2.4, true)
+	_dot(cv, c + Vector2(14, -R - 15), 4.0, Color(1.0, 0.3, 0.3))
+	cv.draw_circle(c, R, Color(0.7, 0.88, 1.0, 0.16))
+	cv.draw_arc(c, R, 0.0, TAU, 64, INK, LINE_W + 1.2, true)
+	cv.draw_arc(c, R - 2.5, 0.0, TAU, 64, Color(0.85, 0.95, 1.0, 0.9), 2.0, true)
+	cv.draw_arc(c, R - 9.0, PI * 1.08, PI * 1.42, 16, Color(1, 1, 1, 0.8), 4.0, true)
+	cv.draw_arc(c, R - 9.0, PI * 1.5, PI * 1.56, 4, Color(1, 1, 1, 0.8), 4.0, true)
+	cv.draw_arc(c, R + 1.0, PI * 0.28, PI * 0.8, 24, INK, 11.0, true)
+	cv.draw_arc(c, R + 1.0, PI * 0.3, PI * 0.78, 24, Color(0.82, 0.84, 0.9), 7.0, true)
+
+# Gökkuşağı pelerini: boyundan geriye uçuşan, ucu genişleyen dalgalı şerit.
+# Gövdenin ARKASINDA çizilir (draw_behind) — oyunun renk okuması bozulmasın.
+static func _cape(cv: CanvasItem) -> void:
+	var cols := [Color(0.95, 0.3, 0.35), Color(1.0, 0.6, 0.2), Color(1.0, 0.86, 0.3),
+		Color(0.35, 0.8, 0.45), Color(0.3, 0.55, 0.95)]
+	const N := 14
+	var top := PackedVector2Array()
+	var bot := PackedVector2Array()
+	for i in N + 1:
+		var t := float(i) / N
+		var base := Vector2(6, -12).lerp(Vector2(-88, -16), t) + Vector2(0, sin(t * PI * 2.4) * 7.0 * t)
+		var w := 7.0 + 14.0 * t
+		top.append(base + Vector2(0, -w))
+		bot.append(base + Vector2(0, w))
+	var outline := PackedVector2Array(top)
+	for i in range(N, -1, -1):
+		outline.append(bot[i])
+	cv.draw_colored_polygon(outline, INK)
+	cv.draw_polyline(outline + PackedVector2Array([outline[0]]), INK, LINE_W * 2.0, true)
+	for k in cols.size():
+		var band := PackedVector2Array()
+		for i in N + 1:
+			band.append(top[i].lerp(bot[i], float(k) / cols.size()))
+		for i in range(N, -1, -1):
+			band.append(top[i].lerp(bot[i], float(k + 1) / cols.size()))
+		cv.draw_colored_polygon(band, cols[k])
+
+# Altın parıltı: gövde çevresinde yanıp sönen dört köşeli yıldızlar
+# (benekleri altına çevirmek ChameleonBody'de). Rengi değiştirmez.
+static func _golden(cv: CanvasItem) -> void:
+	var t := Time.get_ticks_msec() / 1000.0
+	var spots := [Vector2(-58, -14), Vector2(-20, -38), Vector2(62, -30), Vector2(-66, 30),
+		Vector2(40, 34), Vector2(6, -46)]
+	for i in spots.size():
+		var tw := 0.5 + 0.5 * sin(t * 3.0 + i * 1.7)
+		_sparkle(cv, spots[i], 4.0 + 4.0 * tw, Color(1.0, 0.88, 0.35, 0.35 + 0.65 * tw))
+
+static func _sparkle(cv: CanvasItem, c: Vector2, r: float, col: Color) -> void:
+	var pts := PackedVector2Array()
+	for i in 8:
+		var a := PI / 4.0 * i
+		var rr := r if i % 2 == 0 else r * 0.3
+		pts.append(c + Vector2(cos(a - PI / 2.0), sin(a - PI / 2.0)) * rr)
+	cv.draw_colored_polygon(pts, col)
+	cv.draw_circle(c, r * 0.25, Color(1, 1, 1, col.a))
