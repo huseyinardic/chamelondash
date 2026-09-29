@@ -18,6 +18,7 @@ const NEAR_FACTOR := 0.5
 const FLY_FACTOR := 0.32
 const GLOW_RADIUS := 430.0
 const FLY_COUNT := 16
+const FLY_EXTRA := 16                # yüksek skorda (energy) sırayla beliren ek ateş böcekleri
 const THEME_FADE_SEC := 0.6
 
 # Temaya göre zemin paleti — sıra main.gd'deki theme_palettes ile aynı.
@@ -52,6 +53,9 @@ var speed := 0.0                     # main her karede verir (px/sn; 0 = durdu)
 var glow_target := Vector2.ZERO      # halenin gideceği yer (menü / oyun)
 var bg_gradient: Gradient            # BackgroundGradient'in geçişi (main bağlar)
 var dim_rects: Array = []            # tema tonuyla boyanan karartmalar (alfaları korunur)
+var energy_target := 0.0             # 0..1: skor kilometre taşlarında zemin canlanır (main verir)
+
+var _energy := 0.0
 
 var _glow_pos := Vector2.ZERO
 var _glow_tex: GradientTexture2D
@@ -81,7 +85,7 @@ func _ready() -> void:
 	_far = _make_leaves(rng, 20, 34.0, 64.0, 12.0, 20.0)
 	_near = _make_leaves(rng, 14, 70.0, 130.0, 22.0, 36.0)
 	var vs := get_viewport_rect().size
-	for i in FLY_COUNT:
+	for i in FLY_COUNT + FLY_EXTRA:
 		_flies.append({
 			"p": Vector2(rng.randf_range(0.0, vs.x), rng.randf_range(0.0, vs.y)),
 			"vy": rng.randf_range(-28.0, -10.0),
@@ -127,6 +131,7 @@ func _make_leaves(rng: RandomNumberGenerator, per_side: int, len_min: float, len
 
 func _process(delta: float) -> void:
 	_t += delta
+	_energy = move_toward(_energy, energy_target, delta * 0.8)
 	_far_scroll = fposmod(_far_scroll + speed * FAR_FACTOR * delta, TILE)
 	_near_scroll = fposmod(_near_scroll + speed * NEAR_FACTOR * delta, TILE)
 	_glow_pos = _glow_pos.lerp(glow_target, minf(1.0, delta * 4.0))
@@ -151,16 +156,24 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var vs := get_viewport_rect().size
-	var gs := Vector2(GLOW_RADIUS, GLOW_RADIUS) * 2.0
+	# enerji arttıkça hale büyür ve biraz daha parlar
+	var gs := Vector2(GLOW_RADIUS, GLOW_RADIUS) * 2.0 * (1.0 + 0.3 * _energy)
 	draw_texture_rect(_glow_tex, Rect2(_glow_pos - gs / 2.0, gs), false)
+	if _energy > 0.01:
+		draw_texture_rect(_glow_tex, Rect2(_glow_pos - gs / 2.0, gs), false, Color(1, 1, 1, 0.5 * _energy))
 
 	_draw_layer(_far, _far_scroll, _cur["far"], Color(0, 0, 0, 0), vs)
 
 	var fly: Color = _cur["fly"]
-	for f in _flies:
+	for i in _flies.size():
+		# ek ateş böcekleri enerjiyle birer birer belirir
+		var vis := 1.0 if i < FLY_COUNT else clampf(_energy * FLY_EXTRA - (i - FLY_COUNT), 0.0, 1.0)
+		if vis <= 0.0:
+			continue
+		var f: Dictionary = _flies[i]
 		var tw := 0.5 + 0.5 * sin(_t * 2.3 + f["phase"] * 3.0)
-		draw_circle(f["p"], 10.0, Color(fly, 0.12 * tw))
-		draw_circle(f["p"], 3.0, Color(fly, 0.3 + 0.5 * tw))
+		draw_circle(f["p"], 10.0, Color(fly, 0.12 * tw * vis))
+		draw_circle(f["p"], 3.0, Color(fly, (0.3 + 0.5 * tw) * vis))
 
 	_draw_layer(_near, _near_scroll, _cur["near"], _cur["edge"], vs)
 

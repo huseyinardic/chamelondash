@@ -97,6 +97,14 @@ var _fly_row: HBoxContainer
 var _fly_label: Label
 var _x2_button: Button
 var _goal_label: Label
+var _theme_req: Array[Label] = []    # kilitli temanın altındaki kısa koşul ("Reach 75")
+var _theme_hint: Label               # kilitli temaya dokununca beliren uzun açıklama
+var _theme_hint_tween: Tween
+var _milestone_box: VBoxContainer    # 50/100/150... kutlaması ("50!" + "Speed up!")
+var _milestone_num: Label
+var _milestone_sub: Label
+var _milestone_flash: ColorRect
+var _milestone_tween: Tween
 var _run_fireflies := 0
 var daily_panel: DailyRewardPanel
 var _x2_claimed := false
@@ -130,6 +138,10 @@ var _reward_deadline := 0            # dismiss sonrası ödülü bekleme son an�
 var _rewarded_active := false        # ödüllü reklam gösteriliyor / çözülmeyi bekliyor
 var _rewarded_shown_msec := 0       # reklamın ekrana geldiği an
 const REWARD_ASSUME_MS := 15000    # bu kadar süre izlendiyse callback gelmese de ödül ver
+const SUNSET_UNLOCK_SCORE := 75     # tek koşuda bu skora ulaşınca Sunset teması açılır
+const SUNSET_NEAR_MISS := 25        # sonuçta "az kaldı" yazısı bu kadar yaklaşınca çıkar (50-74)
+const SPEED_RAMP1_TOP := 480.0      # hızlı rampanın tavanı (skor 44); üstünde kapı aralığı açılır
+const MILESTONE_EVERY := 50         # 50, 100, 150...: büyük kutlama + zemin bir kademe canlanır
 var _used_revive_this_run := false
 var waiting_for_ad = false
 var _ads_initialized := false
@@ -291,10 +303,7 @@ func spawn_gate(y_pos: float):
 # hız arttıkça ve kapılar sıklaştıkça devreye girer.
 func _pick_gate_color(y_pos: float) -> int:
 	var n := colors.size()
-	var ahead := 0
-	for g in gates_container.get_children():
-		if not g.get_meta("passed"):
-			ahead += 1
+	var ahead := _gates_ahead()
 	# Önceki kapıya uzaklık onun ŞU ANKİ konumundan ölçülür — kapılar kaydıkça
 	# oluşturulduğu andaki konum eskir. (bu kapı bukalemuna ulaştığında öndeki
 	# kapılar geçilmiş olacak -> hız o skora göre)
@@ -307,8 +316,19 @@ func _pick_gate_color(y_pos: float) -> int:
 			options.append(c)
 	return options.pick_random()
 
+# Henüz geçilmemiş kapı sayısı: yeni kapı bukalemuna ulaştığında skor ~ score + bu.
+func _gates_ahead() -> int:
+	var ahead := 0
+	for g in gates_container.get_children():
+		if not g.get_meta("passed"):
+			ahead += 1
+	return ahead
+
+# 44'e kadar hızlı rampa (220 -> 480), sonra yavaş ikinci aşama (~120'de 540 tavan):
+# yüksek skorda da hızlanma hissedilir. Kapı aralığı hızla birlikte açılır
+# (get_next_spacing) -> kapılar arası SÜRE, dolayısıyla renk çeşitliliği korunur.
 func _speed_for_score(s: int) -> float:
-	return 220.0 + min(s * 6.0, 260.0)
+	return 220.0 + minf(s * 6.0, 260.0) + clampf((s - 44) * 0.8, 0.0, 60.0)
 
 func _process(delta):
 	_update_juice(delta)
@@ -453,10 +473,79 @@ func _award_pass(gate: ColorRect):
 		_shake = 6.0
 		score_label.modulate = Color(1.5, 1.25, 0.35)
 		create_tween().tween_property(score_label, "modulate", Color(1, 1, 1, 1), 0.45)
+	if score % MILESTONE_EVERY == 0:
+		_celebrate_milestone()
 	if gate.get_meta("tutorial", false):
 		_tutorial_passed += 1
 		if _tutorial_passed >= TUTORIAL_GATES.size():
 			_finish_tutorial()
+
+# 50, 100, 150...: ortada kısa "50! Speed up!" + hafif altın ışık, zemin bir kademe
+# canlanır (daha çok ateş böceği, geniş hale). Kısa ve yarı saydam: arkadan geçen
+# kapının rengi okunmaya devam etsin.
+func _celebrate_milestone() -> void:
+	Analytics.log_event("milestone", {"score": score})
+	backdrop.energy_target = clampf(float(score / MILESTONE_EVERY) / 3.0, 0.0, 1.0)
+	_vibrate(40)
+	if _milestone_box == null:
+		_build_milestone_ui()
+	_milestone_num.text = "%d!" % score
+	# ekranın üst-ortası, ama her durumda bukalemunun rahatça üstünde
+	var top := minf(get_viewport_rect().size.y * 0.28, _cham_home.y - 420.0)
+	_milestone_box.offset_top = top
+	_milestone_box.offset_bottom = top + 190.0
+	_milestone_box.visible = true
+	_milestone_box.pivot_offset = _milestone_box.size / 2.0
+	_milestone_box.modulate.a = 0.0
+	_milestone_box.scale = Vector2(0.6, 0.6)
+	if _milestone_tween:
+		_milestone_tween.kill()
+	_milestone_tween = create_tween()
+	_milestone_tween.tween_property(_milestone_box, "modulate:a", 0.92, 0.15)
+	_milestone_tween.parallel().tween_property(_milestone_box, "scale", Vector2.ONE, 0.35) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_milestone_tween.tween_interval(0.6)
+	_milestone_tween.tween_property(_milestone_box, "modulate:a", 0.0, 0.35)
+	_milestone_tween.tween_callback(func(): _milestone_box.visible = false)
+	_milestone_flash.color.a = 0.0
+	var ft := create_tween()
+	ft.tween_property(_milestone_flash, "color:a", 0.12, 0.06)
+	ft.tween_property(_milestone_flash, "color:a", 0.0, 0.4)
+
+func _build_milestone_ui() -> void:
+	_milestone_box = VBoxContainer.new()
+	_milestone_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_milestone_box.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_milestone_box.add_theme_constant_override("separation", -8)
+	_milestone_num = score_label.duplicate(0)
+	_milestone_num.add_theme_font_size_override("font_size", 120)
+	_milestone_num.add_theme_color_override("font_color", Color(1.0, 0.86, 0.35))
+	_milestone_sub = score_label.duplicate(0)
+	_milestone_sub.text = "Speed up!"
+	_milestone_sub.add_theme_font_size_override("font_size", 44)
+	for l: Label in [_milestone_num, _milestone_sub]:
+		l.scale = Vector2.ONE
+		l.modulate = Color.WHITE
+		l.visible = true
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_milestone_box.add_child(l)
+	_milestone_box.visible = false
+	$UI.add_child(_milestone_box)
+	$UI.move_child(_milestone_box, score_label.get_index() + 1)
+	_milestone_flash = ColorRect.new()
+	_milestone_flash.color = Color(1.0, 0.85, 0.45, 0.0)
+	_milestone_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_milestone_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	$UI.add_child(_milestone_flash)
+	$UI.move_child(_milestone_flash, _milestone_box.get_index())
+
+func _hide_milestone() -> void:
+	if _milestone_tween:
+		_milestone_tween.kill()
+	if _milestone_box:
+		_milestone_box.visible = false
+		_milestone_flash.color.a = 0.0
 
 func update_chameleon_color(new_color: Color, animate: bool = true):
 	color_wheel.set_colors(colors)
@@ -499,10 +588,11 @@ func end_game():
 	score_label.visible = false
 	pause_button.visible = false
 	_hide_tutorial()
+	_hide_milestone()
 	_play_death_juice()
 
 	# revive sonrası ikinci ölümde de gösterilebilsin diye koşu boyunca birikir
-	if score >= 15 and 1 not in GameState.unlocked_themes:
+	if score >= SUNSET_UNLOCK_SCORE and 1 not in GameState.unlocked_themes:
 		if GameState.unlock_theme(1):
 			_newly_unlocked = 1
 			Analytics.log_event("theme_unlocked", {"theme": theme_names[1], "source": "score"})
@@ -959,6 +1049,28 @@ func _grant_reward(purpose: String) -> void:
 				Analytics.log_event("theme_unlocked", {"theme": theme_names[2], "source": "ad"})
 			setup_start_panel()
 
+# Kilitli tema nasıl açılır: kısa (kutunun altı) ya da uzun (dokununca) metin.
+func _theme_requirement(index: int, long: bool) -> String:
+	match index:
+		1:
+			return ("Reach %d in one run to unlock!" if long else "Reach %d") % SUNSET_UNLOCK_SCORE
+		2:
+			return ("Play %d days in a row to unlock!" if long else "%d-day streak") % GameState.NEON_STREAK_DAY
+	return ""
+
+func _show_theme_hint(index: int) -> void:
+	if _theme_hint == null or index >= _theme_req.size():
+		return
+	_theme_hint.text = _theme_requirement(index, true)
+	_pop_label(_theme_req[index], 1.3)
+	_vibrate(15)
+	if _theme_hint_tween:
+		_theme_hint_tween.kill()
+	_theme_hint.modulate.a = 1.0
+	_theme_hint_tween = create_tween()
+	_theme_hint_tween.tween_interval(2.2)
+	_theme_hint_tween.tween_property(_theme_hint, "modulate:a", 0.0, 0.4)
+
 func _refresh_unlock_neon_button() -> void:
 	var neon_locked: bool = 2 not in GameState.unlocked_themes
 	var on_themes_tab: bool = costume_shop == null or not costume_shop.visible
@@ -998,10 +1110,12 @@ func _on_share_pressed():
 	
 func get_next_spacing() -> float:
 	gate_spawn_count += 1
+	# 480 hızın üstünde aralık hızla orantılı büyür: kapılar arası süre sabit kalır
+	var k := maxf(1.0, _speed_for_score(score + _gates_ahead()) / SPEED_RAMP1_TOP)
 	if gate_spawn_count % big_breath_interval == 0:
-		return randf_range(900.0, 1100.0)
+		return randf_range(900.0, 1100.0) * k
 	else:
-		return randf_range(min_gate_spacing, max_gate_spacing)
+		return randf_range(min_gate_spacing, max_gate_spacing) * k
 		
 func setup_start_panel():
 	
@@ -1029,7 +1143,11 @@ func setup_start_panel():
 		update_swatch_visual(swatch, i)
 		var label = themes_panel.get_node(theme_label_paths[i])
 		label.text = theme_names[i]
+		if i < _theme_req.size():
+			_theme_req[i].text = "" if i in GameState.unlocked_themes else _theme_requirement(i, false)
 	_swatches_connected = true
+	if _theme_hint != null:
+		_theme_hint.modulate.a = 0.0
 	_refresh_unlock_neon_button()
 	_refresh_menu_hero()
 
@@ -1132,6 +1250,8 @@ func _on_swatch_pressed(index: int):
 		# kilitli Neon'a dokunulduysa ve ödüllü reklam hazırsa: aç teklifini göster
 		if index == 2 and rewarded_ready():
 			_show_rewarded("unlock_neon")
+		else:
+			_show_theme_hint(index)
 		return
 	GameState.active_theme = index
 	GameState.save_data()
@@ -1233,6 +1353,8 @@ func _reset_field(keep_progress: bool) -> void:
 		current_color_index = 0
 		scroll_speed = 220.0
 		gate_spawn_count = 0
+		backdrop.energy_target = 0.0
+	_hide_milestone()
 	next_gate_y = -300.0
 	last_spawned_gate = null
 	_prev_gate_color = current_color_index
@@ -1268,7 +1390,7 @@ func _reset_field(keep_progress: bool) -> void:
 		next_gate_y -= get_next_spacing()
 
 func check_retroactive_unlocks():
-	if GameState.high_score >= 15 and 1 not in GameState.unlocked_themes:
+	if GameState.high_score >= SUNSET_UNLOCK_SCORE and 1 not in GameState.unlocked_themes:
 		GameState.unlock_theme(1)
 	if GameState.daily_streak >= 3 and 2 not in GameState.unlocked_themes:
 		GameState.unlock_theme(2)
@@ -1425,6 +1547,24 @@ func _build_economy_ui() -> void:
 	box.add_child(costume_shop)
 	box.move_child(costume_shop, 2)
 
+	# kilitli temaların altında koşul, dokununca altta uzun açıklama (metinler setup_start_panel'de)
+	var name_tpl: Label = $UI/ThemesPanel/Box/ThemeRow/ThemeBox0/ThemeLabel0
+	for i in theme_names.size():
+		var req: Label = name_tpl.duplicate(0)
+		req.text = ""
+		req.add_theme_font_size_override("font_size", 18)
+		req.add_theme_color_override("font_color", Color(1.0, 0.82, 0.4))
+		themes_panel.get_node("Box/ThemeRow/ThemeBox%d" % i).add_child(req)
+		_theme_req.append(req)
+	_theme_hint = name_tpl.duplicate(0)
+	_theme_hint.text = ""
+	_theme_hint.add_theme_font_size_override("font_size", 22)
+	_theme_hint.add_theme_color_override("font_color", Color(1.0, 0.82, 0.4))
+	_theme_hint.modulate.a = 0.0
+	var row: Control = $UI/ThemesPanel/Box/ThemeRow
+	box.add_child(_theme_hint)
+	box.move_child(_theme_hint, row.get_index() + 1)
+
 	# giriş ekranı: sol üstte ateş böceği sayacı, Wardrobe düğmesinde "alınabilir" rozeti
 	themes_button.text = "Wardrobe"
 	_fly_counter = HBoxContainer.new()
@@ -1509,6 +1649,8 @@ func _show_wardrobe_tab(tab: String) -> void:
 	var costumes := tab == "costumes"
 	costume_shop.visible = costumes
 	$UI/ThemesPanel/Box/ThemeRow.visible = not costumes
+	if _theme_hint != null:
+		_theme_hint.visible = not costumes
 	_refresh_unlock_neon_button()
 	var hi := themes_done_button.get_theme_stylebox("hover")
 	var lo := themes_done_button.get_theme_stylebox("normal")
@@ -1592,6 +1734,21 @@ func _on_daily_claimed(r: Dictionary) -> void:
 
 # Sıradaki hedef: en ucuz alınmamış kostüm — "bir oyun daha" sebebi.
 func _refresh_goal_label() -> void:
+	# Sunset'e az kaldıysa kostüm hedefi yerine bu: "az kaldı" en güçlü tekrar sebebi.
+	# Uzaktayken (skor < 50) gösterilmez — ulaşılmaz görünen hedef caydırır.
+	var to_sunset: int = SUNSET_UNLOCK_SCORE - int(score)
+	var near_sunset: bool = 1 not in GameState.unlocked_themes and to_sunset > 0 and to_sunset <= SUNSET_NEAR_MISS
+	# seri satırının soluk stilini kopyalıyor; "az kaldı" göze çarpmalı: büyük ve tam opak
+	_goal_label.add_theme_font_size_override("font_size", 32 if near_sunset else 24)
+	_goal_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.35) if near_sunset else Color(1, 1, 1, 0.65))
+	if near_sunset:
+		_goal_label.visible = true
+		_goal_label.text = ("Only %d more point for Sunset!" if to_sunset == 1 else "Only %d more points for Sunset!") % to_sunset
+		_goal_label.modulate = Color.WHITE
+		get_tree().create_timer(0.7).timeout.connect(func():
+			if _goal_label.visible and results_panel.visible:
+				_pop_label(_goal_label, 1.25))
+		return
 	var goal := Costumes.next_goal()
 	_goal_label.visible = not goal.is_empty()
 	if goal.is_empty():
@@ -1670,6 +1827,8 @@ func _return_to_menu() -> void:
 	current_color_index = 0
 	scroll_speed = 220.0
 	gate_spawn_count = 0
+	backdrop.energy_target = 0.0
+	_hide_milestone()
 	next_gate_y = -300.0
 	last_spawned_gate = null
 	_prev_gate_color = current_color_index
