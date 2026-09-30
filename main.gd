@@ -142,6 +142,13 @@ const SUNSET_UNLOCK_SCORE := 75     # tek koşuda bu skora ulaşınca Sunset tem
 const SUNSET_NEAR_MISS := 25        # sonuçta "az kaldı" yazısı bu kadar yaklaşınca çıkar (50-74)
 const SPEED_RAMP1_TOP := 480.0      # hızlı rampanın tavanı (skor 44); üstünde kapı aralığı açılır
 const MILESTONE_EVERY := 50         # 50, 100, 150...: büyük kutlama + zemin bir kademe canlanır
+const SQUEEZE_FROM := 44            # bu skordan sonra kapılar arası süre daralmaya başlar
+const SQUEEZE_TO := 200.0           # ...ve burada tabana iner
+const TIME_SQUEEZE := 0.25          # tabanda süre %25 kısa (1,07 sn -> ~0,80 sn)
+const LATE_BREATH_FROM := 100       # bundan sonra geniş "nefes arası" daha seyrek
+const LATE_BREATH_INTERVAL := 15
+const FAIR_MARGIN := 0.92           # renk seçici kapılar arası süreyi %8 eksik varsayar (güvenli taraf)
+const SAME_COLOR_WEIGHT_LATE := 0.4 # 44'ten sonra "aynı renk" kapının seçilme ağırlığı (diğerleri 1)
 var _used_revive_this_run := false
 var waiting_for_ad = false
 var _ads_initialized := false
@@ -308,13 +315,27 @@ func _pick_gate_color(y_pos: float) -> int:
 	# oluşturulduğu andaki konum eskir. (bu kapı bukalemuna ulaştığında öndeki
 	# kapılar geçilmiş olacak -> hız o skora göre)
 	var prev_y: float = last_spawned_gate.position.y if is_instance_valid(last_spawned_gate) else INF
-	var secs: float = (prev_y - y_pos) / _speed_for_score(score + ahead)
+	# %8 güvenlik payı: tahmin (hız, kare yuvarlaması) biraz iyimser kalabiliyordu
+	var secs: float = (prev_y - y_pos) / _speed_for_score(score + ahead) * FAIR_MARGIN
+	# 44'ten sonra süre daralınca "aynı renk" (dokunmadan geçilen bedava kapı) çoğalıyordu;
+	# başka seçenek varken ağırlığını düşür ki zorluk renk çeşitliliğiyle de sürsün
+	var same_w: float = SAME_COLOR_WEIGHT_LATE if score > SQUEEZE_FROM else 1.0
 	var options: Array[int] = []
+	var weights: Array[float] = []
+	var total := 0.0
 	for c in n:
 		var taps := posmod(c - _prev_gate_color, n)
 		if taps == 0 or TAP_REACTION_SEC + taps * TAP_INTERVAL_SEC <= secs:
 			options.append(c)
-	return options.pick_random()
+			var w := same_w if taps == 0 else 1.0
+			weights.append(w)
+			total += w
+	var r := randf() * total
+	for i in options.size():
+		r -= weights[i]
+		if r <= 0.0:
+			return options[i]
+	return options[options.size() - 1]
 
 # Henüz geçilmemiş kapı sayısı: yeni kapı bukalemuna ulaştığında skor ~ score + bu.
 func _gates_ahead() -> int:
@@ -579,6 +600,16 @@ func _unhandled_input(event):
 		current_color_index = (current_color_index + 1) % colors.size()
 		update_chameleon_color(colors[current_color_index])
 
+# Firebase konsolu skorun dağılımını göstermez (yalnız ortalama): skor aralığı ayrı bir
+# metin parametresi olarak gider, özel boyut (custom dimension) olarak grafiklenir.
+func _score_band(s: int) -> String:
+	if s < 10: return "0-9"
+	if s < 25: return "10-24"
+	if s < 50: return "25-49"
+	if s < 100: return "50-99"
+	if s < 150: return "100-149"
+	return "150+"
+
 func end_game():
 	game_over = true
 	can_restart = false
@@ -603,6 +634,7 @@ func end_game():
 
 	Analytics.log_event("game_over", {
 		"score": score,
+		"score_band": _score_band(score),
 		"duration_sec": int(float(Time.get_ticks_msec() - _run_start_msec) / 1000.0),
 		"revived": 1 if _used_revive_this_run else 0,
 	})
@@ -1110,9 +1142,17 @@ func _on_share_pressed():
 	
 func get_next_spacing() -> float:
 	gate_spawn_count += 1
-	# 480 hızın üstünde aralık hızla orantılı büyür: kapılar arası süre sabit kalır
-	var k := maxf(1.0, _speed_for_score(score + _gates_ahead()) / SPEED_RAMP1_TOP)
-	if gate_spawn_count % big_breath_interval == 0:
+	# Zorluk = kapılar arası SÜRE. 44'e kadar hız artışı süreyi kısaltır; sonra aralık
+	# hızla orantılı açılır ama 200'e kadar yavaşça daralan bir payla (süre 1,07 sn ->
+	# ~0,80 sn): oyun 44'ten sonra da zorlaşmaya devam eder, renk seçici her kapının
+	# yetişilebilir olmasını yine garanti eder.
+	var s: int = int(score) + _gates_ahead()
+	var k := 1.0
+	if s > SQUEEZE_FROM:
+		var squeeze := TIME_SQUEEZE * clampf(float(s - SQUEEZE_FROM) / (SQUEEZE_TO - SQUEEZE_FROM), 0.0, 1.0)
+		k = _speed_for_score(s) / SPEED_RAMP1_TOP * (1.0 - squeeze)
+	var breath: int = big_breath_interval if s < LATE_BREATH_FROM else LATE_BREATH_INTERVAL
+	if gate_spawn_count % breath == 0:
 		return randf_range(900.0, 1100.0) * k
 	else:
 		return randf_range(min_gate_spacing, max_gate_spacing) * k
