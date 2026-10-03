@@ -18,6 +18,8 @@ extends Node2D
 @onready var pass_sound: AudioStreamPlayer = $PassSound
 @onready var game_over_sound: AudioStreamPlayer = $GameOverSound
 @onready var share_node: Share = $Share
+const REVIEW_MIN_GAMES := 5   # değerlendirme penceresi en erken bu kadar oyundan sonra (yeni rekorda)
+var _review: ReviewPrompt
 @onready var share_button: Button = $UI/ResultsPanel/IconRow/ShareButton
 @onready var streak_label: Label = $UI/ResultsPanel/Middle/StreakLabel
 # oyun sonu — 1. aşama: devam teklifi
@@ -204,6 +206,8 @@ func _ready():
 	colors = theme_palettes[GameState.active_theme]
 	var screen_size = get_viewport_rect().size
 	share_button.pressed.connect(_on_share_pressed)
+	_review = ReviewPrompt.new()
+	add_child(_review)
 	interstitial_ad_load_callback.on_ad_failed_to_load = _on_interstitial_failed
 	interstitial_ad_load_callback.on_ad_loaded = _on_interstitial_loaded
 	full_screen_callback.on_ad_dismissed_full_screen_content = _on_ad_dismissed
@@ -755,9 +759,18 @@ func _show_results() -> void:
 	# yanlışlıkla anında yeniden başlamayı önle
 	_results_gen += 1
 	var gen := _results_gen
+	if is_new_best and GameState.game_over_count >= REVIEW_MIN_GAMES:
+		_ask_review_later(gen)
 	await get_tree().create_timer(0.45).timeout
 	if gen == _results_gen and _go_stage == "results":
 		can_restart = true
+
+# Yeni rekor rozeti yerine oturduktan sonra (oyuncunun en mutlu anı). Geçiş
+# reklamı yalnız "tekrar dene" dokunuşunda geldiği için pencereyle çakışmaz.
+func _ask_review_later(gen: int) -> void:
+	await get_tree().create_timer(1.2).timeout
+	if gen == _results_gen and _go_stage == "results":
+		_review.maybe_ask("new_best")
 
 func _fill_mini_swatch(holder: Control, palette: Array) -> void:
 	if holder.get_child_count() == 0:
