@@ -178,6 +178,9 @@ var _death_flash: ColorRect = null
 # --- başlangıç ekranı (menü) ---
 const MENU_CHAM_SCALE := 1.5
 const MENU_COLOR_INTERVAL := 1.2   # menüdeki bukalemunun renk değiştirme aralığı (sn)
+# Menü bukalemunu ikondaki gibi yeşil tonla başlar (tema başına palet sırası:
+# Classic zümrüt, Sunset camgöbeği, Neon lime). Oyun yine colors[0] ile başlar.
+const MENU_START_COLOR := [3, 2, 2]
 var _menu_center := Vector2.ZERO
 var _menu_t := 0.0
 var _menu_color_t := 0.0
@@ -1464,7 +1467,7 @@ func _show_menu() -> void:
 	start_panel.visible = true
 	menu_chameleon.visible = true
 	menu_chameleon.scale = Vector2.ONE * MENU_CHAM_SCALE
-	_menu_color_index = 0
+	_menu_color_index = _menu_start_color()
 	_menu_color_t = 0.0
 	_layout_menu()
 	setup_start_panel()
@@ -1476,6 +1479,10 @@ func _layout_menu() -> void:
 	menu_rings.position = _menu_center
 	if not _starting:
 		menu_chameleon.position = _menu_center
+
+func _menu_start_color() -> int:
+	var t: int = GameState.active_theme
+	return MENU_START_COLOR[t] if t >= 0 and t < MENU_START_COLOR.size() else 0
 
 func _refresh_menu_hero() -> void:
 	menu_rings.set_colors(colors)
