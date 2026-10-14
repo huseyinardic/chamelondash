@@ -768,11 +768,12 @@ func _show_results() -> void:
 	if gen == _results_gen and _go_stage == "results":
 		can_restart = true
 
-# Yeni rekor rozeti yerine oturduktan sonra (oyuncunun en mutlu anı). Geçiş
-# reklamı yalnız "tekrar dene" dokunuşunda geldiği için pencereyle çakışmaz.
+# Yeni rekor rozeti yerine oturduktan sonra (oyuncunun en mutlu anı). Erken "tekrar dene"
+# dokunuşuyla reklam açıldıysa sorma; pencere hazırlanırken de reklam açılmaz
+# (_should_show_interstitial) — Google'ın hazırlığı birkaç saniye sürebiliyor.
 func _ask_review_later(gen: int) -> void:
 	await get_tree().create_timer(1.2).timeout
-	if gen == _results_gen and _go_stage == "results":
+	if gen == _results_gen and _go_stage == "results" and not waiting_for_ad and not _rewarded_active:
 		_review.maybe_ask("new_best")
 
 func _fill_mini_swatch(holder: Control, palette: Array) -> void:
@@ -901,6 +902,8 @@ func _on_interstitial_loaded(ad: InterstitialAd):
 
 func _should_show_interstitial() -> bool:
 	if interstitial_ad == null:
+		return false
+	if _review.busy():         # değerlendirme penceresi hazırlanıyor/açık: üstüne reklam açılmasın
 		return false
 	if GameState.game_over_count <= AD_FREE_GAMES:
 		return false
