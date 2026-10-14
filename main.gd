@@ -20,6 +20,7 @@ extends Node2D
 @onready var share_node: Share = $Share
 const REVIEW_MIN_GAMES := 5   # değerlendirme penceresi en erken bu kadar oyundan sonra (yeni rekorda)
 var _review: ReviewPrompt
+var _promo_card: CrossPromo    # oyun sonu çapraz tanıtım kartı (varsa)
 @onready var share_button: Button = $UI/ResultsPanel/IconRow/ShareButton
 @onready var streak_label: Label = $UI/ResultsPanel/Middle/StreakLabel
 # oyun sonu — 1. aşama: devam teklifi
@@ -740,6 +741,9 @@ func _show_results() -> void:
 
 	results_panel.visible = true
 	results_panel.modulate.a = 0.0
+	var promo := CrossPromo.pick("chameleon", GameState.game_over_count, is_new_best)
+	if not promo.is_empty():
+		_show_cross_promo(promo)
 	create_tween().tween_property(results_panel, "modulate:a", 1.0, 0.25)
 
 	# skor sayarak yükselir; yeni rekorsa rozet sonra zıplayarak gelir
@@ -776,6 +780,26 @@ func _ask_review_later(gen: int) -> void:
 	if gen == _results_gen and _go_stage == "results" and not waiting_for_ad and not _rewarded_active:
 		_review.maybe_ask("new_best")
 
+# Çapraz tanıtım kartı (cross_promo.gd): sonuç satırlarıyla "Tap to retry" arasındaki
+# boşluğun ortasında. Yerleşim bir kare sonra oturduğu için beklenir; sığmazsa gösterilmez.
+func _show_cross_promo(g: Dictionary) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if _go_stage != "results":
+		return
+	var card := CrossPromo.create(g, "chameleon", load("res://fonts/Fredoka-Bold.ttf"),
+		load("res://fonts/Fredoka-Medium.ttf"), Color(0.3, 0.78, 0.45))
+	var top := results_middle.get_global_rect().end.y + 24.0
+	var bottom := retry_label.get_global_rect().position.y - 20.0
+	if bottom - top < card.size.y:
+		card.queue_free()
+		return
+	results_panel.add_child(card)
+	card.global_position = Vector2((get_viewport_rect().size.x - card.size.x) / 2.0,
+		(top + bottom - card.size.y) / 2.0)
+	_promo_card = card
+	card.appear(0.6)
+
 func _fill_mini_swatch(holder: Control, palette: Array) -> void:
 	if holder.get_child_count() == 0:
 		for i in 4:
@@ -791,6 +815,8 @@ func _fill_mini_swatch(holder: Control, palette: Array) -> void:
 
 func _hide_game_over_ui() -> void:
 	_go_stage = ""
+	if is_instance_valid(_promo_card):
+		_promo_card.queue_free()
 	_continue_ad_pending = false
 	_results_gen += 1
 	dim_overlay.visible = false
