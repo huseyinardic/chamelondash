@@ -21,6 +21,7 @@ extends Node2D
 const REVIEW_MIN_GAMES := 5   # değerlendirme penceresi en erken bu kadar oyundan sonra (yeni rekorda)
 var _review: ReviewPrompt
 var _promo_card: CrossPromo    # oyun sonu çapraz tanıtım kartı (varsa)
+var reminders: Reminders       # günlük ödül hatırlatması (yerel bildirim)
 @onready var share_button: Button = $UI/ResultsPanel/IconRow/ShareButton
 @onready var streak_label: Label = $UI/ResultsPanel/Middle/StreakLabel
 # oyun sonu — 1. aşama: devam teklifi
@@ -1724,6 +1725,9 @@ func _build_economy_ui() -> void:
 	daily_panel = DailyRewardPanel.new()
 	daily_panel.build($UI/ThemesPanel/Box/ThemesTitle, $UI/ThemesPanel/Box/ThemeRow/ThemeBox0/ThemeLabel0, continue_button)
 	daily_panel.claimed.connect(_on_daily_claimed)
+	reminders = Reminders.new()
+	add_child(reminders)
+	daily_panel.reminder_answer.connect(reminders.answer)
 	$UI.add_child(daily_panel)
 
 func _button_from(template: Button, text: String, min_size: Vector2) -> Button:
@@ -1809,6 +1813,7 @@ func _on_double_fireflies_granted() -> void:
 func _maybe_show_daily_reward() -> void:
 	GameState.update_daily_streak()   # uygulama gece yarısını açık geçirdiyse
 	if GameState.game_over_count > 0 and GameState.daily_reward_available():
+		daily_panel.offer_reminder = reminders.should_ask()
 		daily_panel.show_for(GameState.daily_reward_preview())
 
 func _on_daily_claimed(r: Dictionary) -> void:
@@ -1820,6 +1825,7 @@ func _on_daily_claimed(r: Dictionary) -> void:
 	_apply_costumes()
 	setup_start_panel()
 	_pop_label(_fly_counter_label, 1.5)
+	reminders.refresh()          # bugünkü alındı: hatırlatma yarına kayar
 
 # Sıradaki hedef: en ucuz alınmamış kostüm — "bir oyun daha" sebebi.
 func _refresh_goal_label() -> void:

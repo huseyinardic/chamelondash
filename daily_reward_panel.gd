@@ -7,6 +7,7 @@ extends Control
 # Ödülün kendisi GameState.claim_daily_reward'da; bu sadece arayüz.
 
 signal claimed(result: Dictionary)
+signal reminder_answer(yes: bool)   # ödülden sonra "hatırlatayım mı?" kartının cevabı
 
 const CELL := Vector2(64, 100)
 const GOLD := Color(1.0, 0.82, 0.25)
@@ -16,6 +17,8 @@ var _subtitle: Label
 var _extra: Label
 var _claim: Button
 var _busy := false
+var offer_reminder := false     # main açmadan önce ayarlar (Reminders.should_ask)
+var _ask: VBoxContainer         # "Remind me" sorusu: Claim düğmesinin yerine gelir
 var dim: ColorRect            # main temaya göre renklendirir (JungleBackdrop.dim_rects)
 
 # Taç simgesi: Costumes'ın bukalemun koordinatlı çizimini kutuya sığdırır.
@@ -72,6 +75,33 @@ func build(title_t: Label, label_t: Label, button_t: Button) -> void:
 	_claim.visible = true
 	_claim.pressed.connect(_on_claim)
 	box.add_child(_claim)
+
+	# ödülü aldıktan hemen sonra: yarınki ödül için hatırlatma izni (bağlam en net bu an)
+	_ask = VBoxContainer.new()
+	_ask.add_theme_constant_override("separation", 14)
+	_ask.visible = false
+	var q: Label = label_t.duplicate(0)
+	q.text = "Want a reminder when
+tomorrow's reward is ready?"
+	q.add_theme_font_size_override("font_size", 26)
+	q.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_ask.add_child(q)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 16)
+	for yes in [true, false]:
+		var b: Button = button_t.duplicate(0)
+		b.text = "Remind me" if yes else "No thanks"
+		b.custom_minimum_size = Vector2(230 if yes else 190, 64)
+		b.add_theme_font_size_override("font_size", 26 if yes else 22)
+		b.disabled = false
+		b.visible = true
+		if not yes:
+			b.modulate = Color(1, 1, 1, 0.75)
+		b.pressed.connect(_on_reminder.bind(yes))
+		row.add_child(b)
+	_ask.add_child(row)
+	box.add_child(_ask)
 
 func _make_cell(day: int, label_t: Label) -> Panel:
 	var p := Panel.new()
@@ -148,6 +178,8 @@ func show_for(preview: Dictionary) -> void:
 	_extra.text = "\n".join(extras)
 	_extra.visible = not extras.is_empty()
 	_claim.disabled = false
+	_claim.visible = true
+	_ask.visible = false
 	_claim.text = "Claim the Crown!" if preview["crown"] else "Claim +%d" % preview["amount"]
 	_busy = false
 	modulate.a = 0.0
@@ -169,7 +201,27 @@ func _on_claim() -> void:
 	_claim.text = "See you tomorrow!"
 	_claim.disabled = true
 	claimed.emit(r)
+	if offer_reminder:
+		var a := create_tween()
+		a.tween_interval(0.6)
+		a.tween_callback(func():
+			_claim.visible = false
+			_ask.visible = true
+			_ask.modulate.a = 0.0)
+		a.tween_property(_ask, "modulate:a", 1.0, 0.25)
+		return
+	_close(0.9)
+
+func _on_reminder(yes: bool) -> void:
+	if not _ask.visible:
+		return
+	_ask.visible = false
+	offer_reminder = false
+	reminder_answer.emit(yes)
+	_close(0.1)
+
+func _close(delay: float) -> void:
 	var t := create_tween()
-	t.tween_interval(0.9)
+	t.tween_interval(delay)
 	t.tween_property(self, "modulate:a", 0.0, 0.25)
 	t.tween_callback(func(): visible = false)
