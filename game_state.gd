@@ -31,6 +31,14 @@ var sound_enabled = true
 var vibration_enabled = true
 var music_enabled = true
 
+# Reklam kütüphanesi oturum durumu (kaydedilmez). Sahne yeniden yüklense de başlatma bir kez
+# yapılır; "hazır" bilgisi burada, kalıcı autoload'da durur.
+var ads_init_started := false
+var ads_ready := false
+
+func mark_ads_ready(_status = null) -> void:
+	ads_ready = true
+
 const SAVE_PATH = "user://savegame.dat"
 
 func _ready():

@@ -908,17 +908,31 @@ func _on_consent_form_failed(_error: FormError) -> void:
 func _on_consent_form_dismissed(_error: FormError) -> void:
 	_initialize_ads()
 
+# Reklamlar yalnız MobileAds başlatması BİTİNCE yüklenir: erken yükleme yavaş telefonlarda
+# oyunu çökertiyordu ("MobileAds.initialize must be called before using the Google Mobile
+# Ads SDK" — moto g24, Galaxy A2 Core). Hızlı telefonda başlatma 0,1 sn'de bittiği için fark
+# edilmemişti.
 func _initialize_ads() -> void:
 	_apply_analytics_consent()
 	if _ads_initialized:
 		return
 	_ads_initialized = true
-	MobileAds.initialize()
-	var conf := RequestConfiguration.new()
-	# Test cihazları (logcat'teki setTestDeviceIds değeri) — release build'de bile test reklamı gösterir:
-	conf.test_device_ids = ["0A19F3B168FC5DE628D41FE1E5BB333B", "D5B8A059081C01DFD1A8E0E2401DBAC3"]
-	MobileAds.set_request_configuration(conf)
-	await get_tree().create_timer(0.1).timeout
+	if not GameState.ads_init_started:
+		GameState.ads_init_started = true
+		if OS.get_name() != "Android" and OS.get_name() != "iOS":
+			GameState.mark_ads_ready()        # masaüstü: eklentinin sahte (mock) reklamları
+		else:
+			var on_init := OnInitializationCompleteListener.new()
+			on_init.on_initialization_complete = GameState.mark_ads_ready
+			MobileAds.initialize(on_init)
+		var conf := RequestConfiguration.new()
+		# Test cihazları (logcat'teki setTestDeviceIds değeri) — release build'de bile test reklamı gösterir:
+		conf.test_device_ids = ["0A19F3B168FC5DE628D41FE1E5BB333B", "D5B8A059081C01DFD1A8E0E2401DBAC3"]
+		MobileAds.set_request_configuration(conf)
+	var waited := 0.0
+	while not GameState.ads_ready and waited < 60.0:
+		await get_tree().create_timer(0.25).timeout
+		waited += 0.25
 	load_interstitial_ad()
 	load_rewarded_ad()
 
@@ -947,6 +961,8 @@ func _get_interstitial_unit_id() -> String:
 	return INTERSTITIAL_ID_IOS_TEST
 
 func load_interstitial_ad():
+	if not GameState.ads_ready:
+		return
 	InterstitialAdLoader.new().load(_get_interstitial_unit_id(), AdRequest.new(), interstitial_ad_load_callback)
 
 func _on_interstitial_failed(ad_error: LoadAdError):
@@ -1034,6 +1050,8 @@ func _get_rewarded_unit_id() -> String:
 	return REWARDED_ID_IOS_TEST
 
 func load_rewarded_ad() -> void:
+	if not GameState.ads_ready:
+		return
 	RewardedAdLoader.new().load(_get_rewarded_unit_id(), AdRequest.new(), rewarded_ad_load_callback)
 
 func _on_rewarded_loaded(ad: RewardedAd) -> void:
