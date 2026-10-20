@@ -87,6 +87,15 @@ var next_gate_y = -300.0
 # kadar dokunuş isteyen renk seçilmez (bkz. _pick_gate_color)
 const TAP_REACTION_SEC := 0.45   # kapıyı geçtikten sonra yeniden odaklanma payı
 const TAP_INTERVAL_SEC := 0.2    # sayarak yapılan ardışık iki dokunuş arası
+# Dokunuş merdiveni: renkler sabit sırayla döner, 2-3 dokunuşluk kapı yeni oyuncuyu
+# saydırır — ilk saniyelerde ölümün asıl sebebi buydu (Brezilya testi: oyunların %86'sı
+# 10'dan önce bitti). Kapının isteyebileceği en fazla dokunuş skorla artar:
+# [1 dokunuşun bittiği skor, 2 dokunuşun bittiği skor]; sonrası serbest.
+const NEW_PLAYER_GAMES := 5               # ilk 5 oyun "yeni oyuncu"
+const TAP_LADDER_NEW := [15, 30]
+const TAP_LADDER := [8, 20]
+const LADDER_SAME_WEIGHT := 0.5           # tek dokunuş evresinde bedava (aynı renk) kapı daha seyrek
+const SCORE_GOALS := [10, 25, 50]         # sonuç ekranında kademeli hedef (rekor bunların altındaysa)
 var _prev_gate_color := 0
 var color_wheel: ColorWheel
 # ateş böceği ekonomisi / Wardrobe (kodla kurulur: _build_economy_ui)
@@ -165,6 +174,7 @@ var can_restart = false
 var _pending_gate: ColorRect = null
 var _pending_deadline := 0
 const COYOTE_MS := 90
+const COYOTE_MS_NEW := 160        # ilk oyunlarda geç dokunuşa daha geniş tolerans (görünmez yardım)
 
 # revive sonrası kısa dokunulmazlık
 var _revive_grace_until := 0
@@ -200,7 +210,8 @@ var _results_gen := 0
 var _run_start_msec := 0            # analitik: koşu süresi (revive dahil)
 
 # --- ilk oyun öğreticisi ---
-const TUTORIAL_GATES := [0, 1, 2]     # 1. kapı bukalemunla aynı renk, sonrakiler birer dokunuş
+# 1. kapı bukalemunla aynı renk, sonra birer dokunuş, 4.'sü iki dokunuş ("Tap twice!"), son birer
+const TUTORIAL_GATES := [0, 1, 2, 0, 1]
 const TUTORIAL_FREEZE_GAP := 240.0     # renk tutmazsa kapı bukalemunun bu kadar üstünde bekler
 var _tutorial_active := false
 var _tutorial_spawned := 0
@@ -329,11 +340,16 @@ func _pick_gate_color(y_pos: float) -> int:
 	# 44'ten sonra süre daralınca "aynı renk" (dokunmadan geçilen bedava kapı) çoğalıyordu;
 	# başka seçenek varken ağırlığını düşür ki zorluk renk çeşitliliğiyle de sürsün
 	var same_w: float = SAME_COLOR_WEIGHT_LATE if score > SQUEEZE_FROM else 1.0
+	var max_taps := _max_taps(int(score) + ahead)
+	if max_taps == 1:
+		same_w = LADDER_SAME_WEIGHT
 	var options: Array[int] = []
 	var weights: Array[float] = []
 	var total := 0.0
 	for c in n:
 		var taps := posmod(c - _prev_gate_color, n)
+		if taps > max_taps:
+			continue
 		if taps == 0 or TAP_REACTION_SEC + taps * TAP_INTERVAL_SEC <= secs:
 			options.append(c)
 			var w := same_w if taps == 0 else 1.0
@@ -345,6 +361,18 @@ func _pick_gate_color(y_pos: float) -> int:
 		if r <= 0.0:
 			return options[i]
 	return options[options.size() - 1]
+
+# Bu skordaki bir kapının isteyebileceği en fazla dokunuş (dokunuş merdiveni).
+func _max_taps(s: int) -> int:
+	var lad: Array = TAP_LADDER_NEW if _is_new_player() else TAP_LADDER
+	if s < lad[0]:
+		return 1
+	if s < lad[1]:
+		return 2
+	return colors.size() - 1
+
+func _is_new_player() -> bool:
+	return GameState.game_over_count < NEW_PLAYER_GAMES
 
 # Henüz geçilmemiş kapı sayısı: yeni kapı bukalemuna ulaştığında skor ~ score + bu.
 func _gates_ahead() -> int:
@@ -468,7 +496,7 @@ func check_gate_collision(gate: ColorRect):
 	else:
 		# yanlış renk: geç dokunuşa küçük tolerans tanı (senkron, _process'te çözülür)
 		_pending_gate = gate
-		_pending_deadline = Time.get_ticks_msec() + COYOTE_MS
+		_pending_deadline = Time.get_ticks_msec() + (COYOTE_MS_NEW if _is_new_player() else COYOTE_MS)
 
 func _resolve_pending_gate() -> void:
 	if _pending_gate == null:
@@ -505,6 +533,8 @@ func _award_pass(gate: ColorRect):
 		create_tween().tween_property(score_label, "modulate", Color(1, 1, 1, 1), 0.45)
 	if score % MILESTONE_EVERY == 0:
 		_celebrate_milestone()
+	if score == 10:                # ilk oturum kalitesi + reklamın "oyun içi olay" hedefi
+		Analytics.log_event("score_10", {"games_played": GameState.game_over_count})
 	if gate.get_meta("tutorial", false):
 		_tutorial_passed += 1
 		if _tutorial_passed >= TUTORIAL_GATES.size():
@@ -646,6 +676,7 @@ func end_game():
 		"score_band": _score_band(score),
 		"duration_sec": int(float(Time.get_ticks_msec() - _run_start_msec) / 1000.0),
 		"revived": 1 if _used_revive_this_run else 0,
+		"games_played": GameState.game_over_count,   # bundan önce bitirilen oyun sayısı (0 = ilk oyun)
 	})
 
 	if score > GameState.high_score:
@@ -1408,8 +1439,13 @@ func _tutorial_gate_blocked() -> bool:
 func _update_tutorial_label() -> void:
 	if _tutorial_active:
 		var gate := _next_tutorial_gate()
-		var needs_tap: bool = gate != null and gate.get_meta("color_index") != current_color_index
-		tutorial_label.text = "Tap to change color" if needs_tap else "Match the gate's color"
+		var taps: int = 0 if gate == null else posmod(int(gate.get_meta("color_index")) - current_color_index, colors.size())
+		if taps >= 2:
+			tutorial_label.text = "Tap twice!" if taps == 2 else "Tap %d times!" % taps
+		elif taps == 1:
+			tutorial_label.text = "Tap to change color"
+		else:
+			tutorial_label.text = "Match the gate's color"
 		tutorial_label.visible = true
 	elif _tutorial_msg_until > 0 and Time.get_ticks_msec() >= _tutorial_msg_until:
 		_tutorial_msg_until = 0
@@ -1844,6 +1880,14 @@ func _refresh_goal_label() -> void:
 			if _goal_label.visible and results_panel.visible:
 				_pop_label(_goal_label, 1.25))
 		return
+	# rekor ilk hedeflerin altındaysa kostüm yerine skor hedefi: ilk oturumda ulaşılabilir
+	# bir "başardım" anı (50 yeni oyuncuya uzak kalıyordu)
+	for g: int in SCORE_GOALS:
+		if GameState.high_score < g:
+			_goal_label.visible = true
+			_goal_label.text = "Next goal: reach %d!" % g
+			_goal_label.modulate = Color.WHITE
+			return
 	var goal := Costumes.next_goal()
 	_goal_label.visible = not goal.is_empty()
 	if goal.is_empty():
