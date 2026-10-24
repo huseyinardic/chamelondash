@@ -8,12 +8,15 @@ extends Button
 # (o an değerlendirme penceresinin), oturum başına en fazla 1 kez, tıklanan oyun
 # CLICK_COOLDOWN_DAYS gün gösterilmez; birden çok aday varsa sırayla döner.
 # Yalnız ikonu projede olan oyunlar aday (promo/ klasörü). (Juniva oyunlarında aynı dosya.)
+# weight: dönüşte o oyun kaç kez sıraya girer (yeni çıkan oyun öne alınır; varsayılan 1).
 
 const GAMES := [
 	{"id": "istif", "name": "Istif", "tagline": "Stack the tower!", "pkg": "com.huseynardic.stacktower",
 		"icon": "res://promo/istif_icon.png"},
 	{"id": "chameleon", "name": "Chameleon Dash", "tagline": "Match the colors!", "pkg": "com.huseynardic.chameleondash",
 		"icon": "res://promo/chameleon_icon.png"},
+	{"id": "snackbalance", "name": "Snack Balance", "tagline": "Stack snacks, save the panda!", "pkg": "com.huseynardic.snackbalance",
+		"icon": "res://promo/snackbalance_icon.png", "weight": 2},
 ]
 const MIN_GAMES := 5
 const CLICK_COOLDOWN_DAYS := 7
@@ -38,7 +41,8 @@ static func pick(self_id: String, games_played: int, new_best: bool) -> Dictiona
 			continue
 		if now - int(cfg.get_value("clicked", g["id"], 0)) < CLICK_COOLDOWN_DAYS * 86400:
 			continue
-		options.append(g)
+		for k in int(g.get("weight", 1)):
+			options.append(g)
 	if options.is_empty():
 		return {}
 	var turn := int(cfg.get_value("rotate", "next", 0))
