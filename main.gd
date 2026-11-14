@@ -91,7 +91,12 @@ const TAP_INTERVAL_SEC := 0.2    # sayarak yapılan ardışık iki dokunuş aras
 # saydırır — ilk saniyelerde ölümün asıl sebebi buydu (Brezilya testi: oyunların %86'sı
 # 10'dan önce bitti). Kapının isteyebileceği en fazla dokunuş skorla artar:
 # [1 dokunuşun bittiği skor, 2 dokunuşun bittiği skor]; sonrası serbest.
-const NEW_PLAYER_GAMES := 5               # ilk 5 oyun "yeni oyuncu"
+# Yeni oyuncu yardımı (merdiven + geç dokunuş toleransı) ilk HELP_FULL_GAMES oyunda tam, sonra
+# HELP_END_GAMES'e kadar yavaşça azalır. Eskiden 5. oyunda birden kalkıyordu: BigQuery (2-11 Kasım)
+# 0-4. oyunlarda 10+ skor ~%45, 6-11. oyunlarda ~%20; bırakma 5. oyunda sıçrıyordu. GA4 (Ekim,
+# ~900 kişi): oyuncu başına ömür boyu ~5 oyun. Uçurumu 15'e taşımamak için kademeli.
+const HELP_FULL_GAMES := 5
+const HELP_END_GAMES := 15
 const TAP_LADDER_NEW := [15, 30]
 const TAP_LADDER := [8, 20]
 const LADDER_SAME_WEIGHT := 0.5           # tek dokunuş evresinde bedava (aynı renk) kapı daha seyrek
@@ -110,6 +115,7 @@ var _fly_row: HBoxContainer
 var _fly_label: Label
 var _x2_button: Button
 var _goal_label: Label
+var _santa_new := false          # bu oyunun sonunda Noel Baba şapkası açıldı: sonuçta duyurulur
 var _theme_req: Array[Label] = []    # kilitli temanın altındaki kısa koşul ("Reach 75")
 var _theme_hint: Label               # kilitli temaya dokununca beliren uzun açıklama
 var _theme_hint_tween: Tween
@@ -364,15 +370,22 @@ func _pick_gate_color(y_pos: float) -> int:
 
 # Bu skordaki bir kapının isteyebileceği en fazla dokunuş (dokunuş merdiveni).
 func _max_taps(s: int) -> int:
-	var lad: Array = TAP_LADDER_NEW if _is_new_player() else TAP_LADDER
-	if s < lad[0]:
+	var h := _help()
+	var one: int = roundi(lerpf(TAP_LADDER[0], TAP_LADDER_NEW[0], h))   # 8 .. 15
+	var two: int = roundi(lerpf(TAP_LADDER[1], TAP_LADDER_NEW[1], h))   # 20 .. 30
+	if s < one:
 		return 1
-	if s < lad[1]:
+	if s < two:
 		return 2
 	return colors.size() - 1
 
-func _is_new_player() -> bool:
-	return GameState.game_over_count < NEW_PLAYER_GAMES
+# Yeni oyuncu yardımının gücü: 1 = tam (ilk HELP_FULL_GAMES oyun), 0 = yok (HELP_END_GAMES ve sonrası).
+# Örnek: 5. oyun 1.0, 10. oyun 0.5, 15. oyun 0.
+func _help() -> float:
+	var n: int = GameState.game_over_count        # bitirilmiş oyun sayısı (0 = ilk oyun)
+	if n < HELP_FULL_GAMES:
+		return 1.0
+	return clampf(float(HELP_END_GAMES - n) / float(HELP_END_GAMES - HELP_FULL_GAMES), 0.0, 1.0)
 
 # Henüz geçilmemiş kapı sayısı: yeni kapı bukalemuna ulaştığında skor ~ score + bu.
 func _gates_ahead() -> int:
@@ -496,7 +509,7 @@ func check_gate_collision(gate: ColorRect):
 	else:
 		# yanlış renk: geç dokunuşa küçük tolerans tanı (senkron, _process'te çözülür)
 		_pending_gate = gate
-		_pending_deadline = Time.get_ticks_msec() + (COYOTE_MS_NEW if _is_new_player() else COYOTE_MS)
+		_pending_deadline = Time.get_ticks_msec() + roundi(lerpf(COYOTE_MS, COYOTE_MS_NEW, _help()))
 
 func _resolve_pending_gate() -> void:
 	if _pending_gate == null:
@@ -685,6 +698,7 @@ func end_game():
 
 	GameState.game_over_count += 1
 	GameState.games_since_ad += 1
+	_santa_new = Costumes.try_grant_seasonal()      # Aralık: Noel Baba şapkası hediye
 	GameState.save_data()
 
 	dim_overlay.visible = true
@@ -936,23 +950,70 @@ func _initialize_ads() -> void:
 	load_interstitial_ad()
 	load_rewarded_ad()
 
-# UMP akışı her yoldan _initialize_ads()'e çıkar; analitik onayını da burada
-# netleştiriyoruz. UMP kullanıcının hangi amaçlara izin verdiğini Godot'a ayrıntılı
-# vermediği için onay gerektiren bölgelerde (AB/İngiltere) analitik kapalı kalır.
+# UMP akışı her yoldan _initialize_ads()'e çıkar; analitik onayını da burada netleştiriyoruz.
+# Onay gerektirmeyen bölgelerde analitik açık. AB/İngiltere'de oyuncunun seçimi UMP'nin cihaza
+# yazdığı TCF dizesinden okunur (Snack Balance 1.0.39 ile aynı): eskiden oradaki herkes için
+# kapalıydı, onay verse bile. Debug build'de test cihazı AB taklit eder: TCF yolu telefonda
+# denenebilir (onay formunda kabul / ret, logcat'te "TCF").
 func _apply_analytics_consent() -> void:
 	if OS.get_name() != "Android":
-		return
-	if OS.is_debug_build():
-		# test cihazlarında AB simülasyonu açık; DebugView ile test edilebilsin diye
-		Analytics.set_consent(true)
 		return
 	match UserMessagingPlatform.consent_information.get_consent_status():
 		ConsentInformation.ConsentStatus.NOT_REQUIRED:
 			Analytics.set_consent(true)
 		ConsentInformation.ConsentStatus.REQUIRED, ConsentInformation.ConsentStatus.OBTAINED:
-			Analytics.set_consent(false)
+			_apply_tcf_consent()
 		_:
-			pass   # UNKNOWN (ör. çevrimdışı): önceki açılıştaki kalıcı tercih geçerli kalsın
+			# UNKNOWN (ör. çevrimdışı): önceki açılıştaki kalıcı tercih geçerli kalsın
+			if OS.is_debug_build():
+				Analytics.set_consent(true)
+
+# TCF amaçları (1'den başlar; dizenin i. karakteri i+1. amaç, "1" = onay). Google'ın onay
+# modu eşlemesi: reklam depolama = 1, reklam kullanıcı verisi = 1 ve 7, kişiselleştirme = 3 ve 4.
+# Analitik: 1 (cihazda bilgi saklama) ve ölçüm amaçlarından biri (8 içerik ölçümü, 9 kitle
+# istatistiği). Dize boşsa (form kapatıldı / onay yok) hepsi reddedilmiş sayılır.
+func _apply_tcf_consent() -> void:
+	var p := _tcf_purposes()
+	var has := func(n: int) -> bool:
+		return p.length() >= n and p[n - 1] == "1"
+	var analytics: bool = has.call(1) and (has.call(8) or has.call(9))
+	Analytics.set_consent(analytics, has.call(1), has.call(1) and has.call(7), has.call(3) and has.call(4))
+	print("TCF purposes='", p, "' analytics=", analytics)
+
+# UMP, TCF dizesini uygulamanın varsayılan SharedPreferences'ına yazar ("<paket>_preferences").
+func _tcf_purposes() -> String:
+	if not Engine.has_singleton("AndroidRuntime"):
+		return ""
+	var ctx = Engine.get_singleton("AndroidRuntime").getApplicationContext()
+	if ctx == null:
+		return ""
+	var prefs = ctx.getSharedPreferences(str(ctx.getPackageName()) + "_preferences", 0)
+	if prefs == null:
+		return ""
+	var v = prefs.getString("IABTCF_PurposeConsents", "")
+	return "" if v == null else str(v)
+
+# Geri tuşu: açık paneli kapatır / oyunu duraklatır; menüde oyunu kapatmaz, arka plana gönderir
+# (Android'in ana ekran tuşu gibi). quit() ile kapanırken Godot'un çizim iş parçacığı yok edilmiş
+# bir kilide dokunup çökebiliyordu (Snack Balance'ta recursive_mutex::lock SIGABRT). Dönüşte oyun
+# olduğu yerden açılır.
+func _on_back() -> void:
+	if pause_panel.visible:
+		_on_resume_pressed()
+	elif themes_panel.visible:
+		_close_themes()
+	elif game_started and not game_over:
+		_on_pause_pressed()
+	else:
+		_to_background()
+
+func _to_background() -> void:
+	if not Engine.has_singleton("AndroidRuntime"):
+		get_tree().quit()
+		return
+	var runtime = Engine.get_singleton("AndroidRuntime")
+	var activity = runtime.getActivity()
+	activity.runOnUiThread(runtime.createRunnableFromGodotCallable(func(): activity.moveTaskToBack(true)))
 
 func _get_interstitial_unit_id() -> String:
 	if OS.get_name() == "Android":
@@ -1107,6 +1168,9 @@ func _on_rewarded_failed_to_show(_error: AdError) -> void:
 	_try_resolve_rewarded()
 
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		_on_back()
+		return
 	# Uygulama arka plana alınır alınmaz (tam ekran reklam da bunu tetikler) müziği
 	# duraklat; reklam kapanıp öne dönünce kaldığı yerden devam ettir.
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
@@ -1887,6 +1951,16 @@ func _refresh_goal_label() -> void:
 	# Uzaktayken (skor < 50) gösterilmez — ulaşılmaz görünen hedef caydırır.
 	var to_sunset: int = SUNSET_UNLOCK_SCORE - int(score)
 	var near_sunset: bool = 1 not in GameState.unlocked_themes and to_sunset > 0 and to_sunset <= SUNSET_NEAR_MISS
+	if _santa_new:                      # mevsimlik hediye her hedeften önce (x2 sonrası da kalır)
+		_goal_label.add_theme_font_size_override("font_size", 30)
+		_goal_label.add_theme_color_override("font_color", Color(1.0, 0.88, 0.4))
+		_goal_label.visible = true
+		_goal_label.text = "Free Santa Hat! Wear it in the Wardrobe"
+		_goal_label.modulate = Color.WHITE
+		get_tree().create_timer(0.7).timeout.connect(func():
+			if _goal_label.visible and results_panel.visible:
+				_pop_label(_goal_label, 1.25))
+		return
 	# seri satırının soluk stilini kopyalıyor; "az kaldı" göze çarpmalı: büyük ve tam opak
 	_goal_label.add_theme_font_size_override("font_size", 32 if near_sunset else 24)
 	_goal_label.add_theme_color_override("font_color", Color(1.0, 0.7, 0.35) if near_sunset else Color(1, 1, 1, 0.65))

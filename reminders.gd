@@ -10,7 +10,11 @@ extends Node
 #   - İzin (Android 13+): ilk günlük ödül alınınca kendi kartımızda sorulur ("Remind me"),
 #     evet derse sistem penceresi açılır. En fazla MAX_ASKS kez, aralarında ASK_GAP_DAYS gün.
 #   - Yalnız oyunun kendisiyle ilgili mesajlar (Play: bildirimde başka uygulama reklamı yok).
-# Analitik: notif_prompt {answer}, notif_permission {result}, notif_open.
+# Soğuk açılış: bildirime dokunup uygulama kapalıyken açılınca eklenti "açıldı" sinyalini biz
+# bağlanmadan yayıyordu (notif_open ≈ 0 bir ölçüm hatasıydı). Başlatma bitince
+# get_notification_id() ile bakılır; oturum başına bir kez sayılır (Hedgy ile aynı).
+# Analitik: notif_prompt_shown, notif_prompt {answer}, notif_permission {result},
+# notif_open {kind, launch: cold|warm}.
 
 const REMIND_ID := 7101
 const CHANNEL_ID := "daily_reward"
@@ -21,6 +25,7 @@ const ASK_GAP_DAYS := 3
 
 var _ns: NotificationScheduler = null
 var _ready_ok := false
+var _open_logged := false
 
 func _ready() -> void:
 	if OS.get_name() != "Android" or not Engine.has_singleton(NotificationScheduler.PLUGIN_SINGLETON_NAME):
@@ -28,7 +33,7 @@ func _ready() -> void:
 	_ns = NotificationScheduler.new()
 	add_child(_ns)
 	_ns.initialization_completed.connect(_on_initialized)
-	_ns.notification_opened.connect(func(_d): Analytics.log_event("notif_open", {"kind": "daily"}))
+	_ns.notification_opened.connect(func(_d): _log_open("warm"))
 	_ns.post_notifications_permission_granted.connect(func(_p):
 		Analytics.log_event("notif_permission", {"result": "granted"})
 		refresh())
@@ -43,7 +48,16 @@ func _on_initialized() -> void:
 		.set_name("Daily reward")
 		.set_description("Lets you know when your daily reward is ready")
 		.set_importance(NotificationChannel.Importance.DEFAULT))
+	var id := _ns.get_notification_id()                  # soğuk açılış: bu bildirimle mi açıldı
+	if id == REMIND_ID or id == REMIND_ID + 1:
+		_log_open("cold")
 	refresh()
+
+func _log_open(launch: String) -> void:
+	if _open_logged:
+		return
+	_open_logged = true
+	Analytics.log_event("notif_open", {"kind": "daily", "launch": launch})
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED:

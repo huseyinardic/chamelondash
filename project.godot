@@ -16,6 +16,7 @@ general/ios/enabled=false
 [application]
 
 config/name="Chameleon-Dash"
+config/quit_on_go_back=false
 run/main_scene="uid://dnqyc2s60npmb"
 config/features=PackedStringArray("4.7", "Mobile")
 boot_splash/image="uid://by2l28304i3s2"

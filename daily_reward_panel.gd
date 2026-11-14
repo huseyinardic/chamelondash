@@ -202,6 +202,7 @@ func _on_claim() -> void:
 	_claim.disabled = true
 	claimed.emit(r)
 	if offer_reminder:
+		Analytics.log_event("notif_prompt_shown", {"where": "daily"})
 		var a := create_tween()
 		a.tween_interval(0.6)
 		a.tween_callback(func():

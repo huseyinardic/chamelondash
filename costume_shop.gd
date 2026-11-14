@@ -129,10 +129,12 @@ func _refresh() -> void:
 		var c: Dictionary = _cards[id]
 		var owned: bool = id in GameState.owned_costumes
 		var wearing: bool = GameState.get(_slot_key(it)) == id
-		var streak := Costumes.is_streak_item(it)
+		var streak := Costumes.is_reward_item(it)
 		c["icon"].visible = not owned and not streak
 		if owned:
 			c["price"].text = "Wearing" if wearing else "Owned"
+		elif Costumes.is_seasonal(it):
+			c["price"].text = "December"
 		else:
 			c["price"].text = "Day 7" if streak else str(it["price"])
 		c["price"].modulate.a = 1.0 if owned or streak or GameState.fireflies >= it["price"] else 0.45
@@ -153,6 +155,9 @@ func _refresh() -> void:
 	_action.disabled = false
 	if owned:
 		_action.text = "Take off" if GameState.get(_slot_key(item)) == _selected else "Wear"
+	elif Costumes.is_seasonal(item):
+		_action.text = "Free in December!"
+		_action.disabled = true
 	elif Costumes.is_streak_item(item):
 		_action.text = "7-day streak reward"
 		_action.disabled = true
@@ -185,7 +190,7 @@ func _on_action() -> void:
 	if _selected in GameState.owned_costumes:
 		GameState.set(key, "" if GameState.get(key) == _selected else _selected)
 	else:
-		if Costumes.is_streak_item(item) or GameState.fireflies < item["price"]:
+		if Costumes.is_reward_item(item) or GameState.fireflies < item["price"]:
 			return
 		GameState.fireflies -= item["price"]
 		GameState.owned_costumes.append(_selected)

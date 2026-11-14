@@ -17,6 +17,8 @@ const LIST := [
 	{"id": "wizard", "name": "Wizard Hat", "slot": "head", "price": 900},
 	# satın alınamaz: 7 günlük seri ödülü (GameState.claim_daily_reward)
 	{"id": "crown", "name": "Crown", "slot": "head", "price": 0, "streak": true},
+	# satın alınamaz: Aralık hediyesi (try_grant_seasonal). Bir kez alınınca kalıcı.
+	{"id": "santa", "name": "Santa Hat", "slot": "head", "price": 0, "seasonal": true},
 	{"id": "astro", "name": "Astronaut Helmet", "slot": "head", "price": 2000, "legendary": true},
 	{"id": "cape", "name": "Rainbow Cape", "slot": "acc", "price": 3000, "legendary": true},
 	{"id": "golden", "name": "Golden Sparkle", "slot": "aura", "price": 5000, "legendary": true},
@@ -43,12 +45,38 @@ static func slot_key(c: Dictionary) -> String:
 static func is_streak_item(c: Dictionary) -> bool:
 	return c.get("streak", false)
 
+static func is_seasonal(c: Dictionary) -> bool:
+	return c.get("seasonal", false)
+
+# Satın alınamayan ödüller (seri tacı, Aralık şapkası): hedef / "alınabilir" sayılmaz.
+static func is_reward_item(c: Dictionary) -> bool:
+	return is_streak_item(c) or is_seasonal(c)
+
+const SEASONAL_MIN_GAMES := 5      # çapraz tanıtım kartıyla aynı eşik: önce oyunu tanısın
+const DEBUG_DECEMBER := false      # true: debug build'de her ay Aralık sayılır (telefonda deneme)
+
+static func is_december() -> bool:
+	if DEBUG_DECEMBER and OS.is_debug_build():
+		return true
+	return int(Time.get_datetime_dict_from_system()["month"]) == 12
+
+# Aralık'ta en az SEASONAL_MIN_GAMES oyun oynamış oyuncuya Noel Baba şapkası (bir kez).
+# Döner: bu çağrıda verildi mi (sonuç ekranında duyurulur).
+static func try_grant_seasonal() -> bool:
+	if not is_december() or GameState.game_over_count < SEASONAL_MIN_GAMES:
+		return false
+	if "santa" in GameState.owned_costumes:
+		return false
+	GameState.owned_costumes.append("santa")
+	Analytics.log_event("seasonal_item", {"item": "santa", "games": GameState.game_over_count})
+	return true
+
 # Henüz alınmamış en ucuz kostüm (sonuç ekranındaki "sıradaki hedef" için); yoksa {}.
 # Seri ödülü (Taç) satın alınamadığı için hedef sayılmaz.
 static func next_goal() -> Dictionary:
 	var best := {}
 	for c in LIST:
-		if c["id"] in GameState.owned_costumes or is_streak_item(c):
+		if c["id"] in GameState.owned_costumes or is_reward_item(c):
 			continue
 		if best.is_empty() or c["price"] < best["price"]:
 			best = c
@@ -56,7 +84,7 @@ static func next_goal() -> Dictionary:
 
 static func any_affordable() -> bool:
 	for c in LIST:
-		if c["id"] not in GameState.owned_costumes and not is_streak_item(c) 				and GameState.fireflies >= c["price"]:
+		if c["id"] not in GameState.owned_costumes and not is_reward_item(c) 				and GameState.fireflies >= c["price"]:
 			return true
 	return false
 
@@ -70,6 +98,7 @@ static func draw_item(cv: CanvasItem, id: String) -> void:
 		"cowboy": _cowboy(cv)
 		"wizard": _wizard(cv)
 		"crown": _crown(cv)
+		"santa": _santa(cv)
 		"astro": _astro(cv)
 		"golden": _golden(cv)
 
@@ -199,6 +228,18 @@ static func _crown(cv: CanvasItem) -> void:
 	_dot(cv, Vector2(30, -36), 3.0, Color(0.9, 0.2, 0.3))
 	_dot(cv, Vector2(21, -36), 2.0, Color(0.25, 0.55, 0.95))
 	_dot(cv, Vector2(39, -35), 2.0, Color(0.25, 0.55, 0.95))
+
+# Noel Baba şapkası: kırmızı külah, ucu geriye (sola) sarkar, beyaz kürk bant ve ponpon.
+static func _santa(cv: CanvasItem) -> void:
+	var red := Color(0.9, 0.2, 0.25)
+	var fur := Color(1.0, 0.97, 0.94)
+	_shape(cv, PackedVector2Array([Vector2(17, -31), Vector2(43, -30), Vector2(42, -42), Vector2(37, -53),
+		Vector2(28, -60), Vector2(18, -61), Vector2(9, -55), Vector2(15, -52), Vector2(22, -53),
+		Vector2(27, -47), Vector2(24, -38)]), red)
+	cv.draw_line(Vector2(36, -34), Vector2(37, -48), Color(1, 1, 1, 0.35), 3.0, true)
+	_shape(cv, PackedVector2Array([Vector2(13, -35), Vector2(46, -33), Vector2(48, -27), Vector2(46, -22),
+		Vector2(14, -24), Vector2(11, -29)]), fur)
+	_dot(cv, Vector2(9, -54), 5.5, fur)
 
 static func _star(cv: CanvasItem, c: Vector2, r: float, col: Color) -> void:
 	var pts := PackedVector2Array()
