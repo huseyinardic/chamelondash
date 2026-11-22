@@ -245,6 +245,8 @@ func _ready():
 	_setup_ads()
 
 	_build_economy_ui()
+	for b: Button in [continue_button, _x2_button, unlock_neon_button]:
+		_add_ad_icon(b)
 	_apply_safe_area()
 
 	dim_overlay.visible = false
@@ -1847,6 +1849,34 @@ func _build_economy_ui() -> void:
 	add_child(reminders)
 	daily_panel.reminder_answer.connect(reminders.answer)
 	$UI.add_child(daily_panel)
+
+# Ödüllü reklam düğmesi: yazının soluna video kamerası simgesi (yazı rengiyle), oyuncu video
+# izleyeceğini anlasın (2026-11-22; önce "▶" vardı, düz oynat düğmesi gibi görünüyordu).
+# Simge yazının başındaki boşluklara çizilir: simge + yazı birlikte ortalı kalır.
+const AD_ICON := preload("res://ad_icon.png")
+
+func _add_ad_icon(b: Button) -> void:
+	var font := b.get_theme_font("font")
+	var fs := b.get_theme_font_size("font_size")
+	var ih := fs * 0.7
+	var iw := ih * AD_ICON.get_width() / AD_ICON.get_height()
+	var gap := fs * 0.3
+	var sp := maxf(font.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x, 1.0)
+	var label := b.text.replace("▶", "").strip_edges()
+	b.text = " ".repeat(int(ceil((iw + gap) / sp))) + label
+	var ic := TextureRect.new()
+	ic.texture = AD_ICON
+	ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ic.size = Vector2(iw, ih)
+	ic.self_modulate = b.get_theme_color("font_color")
+	b.add_child(ic)
+	var place := func():
+		var full := font.get_string_size(b.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		ic.position = Vector2(roundf((b.size.x - full) / 2.0), roundf((b.size.y - ih) / 2.0))
+	b.resized.connect(place)
+	place.call()
 
 func _button_from(template: Button, text: String, min_size: Vector2) -> Button:
 	var b: Button = template.duplicate(0)
